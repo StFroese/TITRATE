@@ -1,0 +1,14 @@
+name: titrate-dev
+channels:
+  - conda-forge
+  - default
+dependencies:
+  - python=3.11
+  - gammapy
+  - numpy
+  - scipy
+  - matplotlib
+  - pytest
+  - pre-commit
+  - ipython
+  - black
