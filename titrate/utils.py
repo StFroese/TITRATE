@@ -1,3 +1,7 @@
+def CopyModelError(AttributeError):
+    """Something went wrong during copying a model."""
+
+
 def calc_ts_toyMC(dataset, test_statistic, poi_val, poi_true_val, poi_name):
     """Evaluates given test statistic for toy MCs.
 
@@ -15,9 +19,23 @@ def calc_ts_toyMC(dataset, test_statistic, poi_val, poi_true_val, poi_name):
 def copy_dataset_with_models(dataset):
     """Copies a dataset inlcuding the models."""
     dataset_copy = dataset.copy()
+    copy_models_to_dataset(dataset.models, dataset_copy)
 
-    model_copies = dataset.models.copy()
-    model_copies[0]._name = f"{dataset_copy.name}-signal"
-    model_copies[1].datasets_names = [f"{dataset_copy.name}"]
-    dataset_copy.models = model_copies
     return dataset_copy
+
+
+def copy_models_to_dataset(models, dataset):
+    """Copies models and assigns them to dataset."""
+    model_copies = models.copy()
+    for model in model_copies:
+        if hasattr(model, "_name"):
+            model._name = f"{dataset.name}-{model._name}"
+        elif hasattr(model, "datasets_names"):
+            model.datasets_names = [f"{dataset.name}"]
+        else:
+            raise CopyModelError(
+                f"{model.__class__.__name__} doesn't provided `._name`"
+                f"nor `.datasets_names`."
+            )
+
+    dataset.models = model_copies
