@@ -11,3 +11,7 @@ def test_measurement_dataset(measurement_dataset):
 
 def test_compare_asimov_measurement_datasets(asimov_dataset, measurement_dataset):
     assert np.all((measurement_dataset.npred() == measurement_dataset.npred()).data)
+
+
+def test_nosignal_dataset(nosignal_dataset):
+    assert np.sum(nosignal_dataset.npred_signal().data) == 0

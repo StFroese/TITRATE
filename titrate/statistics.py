@@ -10,8 +10,8 @@ class POIError(IndexError):
     """Parameter of interest is not defined in model"""
 
 
-class AsimovParameterError(IndexError):
-    """Parameter of interest is not defined in model"""
+class AsimovApproximationError(IndexError):
+    """Approimation on AsimovMapDataset fails"""
 
 
 class TestStatistic(abc.ABC):
@@ -78,18 +78,26 @@ class QMuTestStatistic(TestStatistic):
                 pois.append(parameter.name)
         return pois
 
+    def sigma(self):
+        if not isinstance(self.dataset, AsimovMapDataset):
+            raise AsimovApproximationError(
+                "`dataset` must be an `AsimovMapDataset` in order to calculate"
+                " `sigma`"
+            )
+        return np.sqrt(self.fit_result.covariance_result.matrix[0, 0])
+
     def asympotic_approximation(self, ts_val, poi_val, poi_true_val):
-        if isinstance(self.dataset, AsimovMapDataset):
-            sigma = np.sqrt(self.fit_result.covariance_result.matrix[0, 0])
-        else:
-            raise AsimovParameterError(
+        if not isinstance(self.dataset, AsimovMapDataset):
+            raise AsimovApproximationError(
                 "`dataset` must be an `AsimovMapDataset` in order to use the"
                 " `asympotic_approximation`"
             )
         return (
             1
             / (2 * np.sqrt(2 * np.pi * ts_val))
-            * np.exp(-0.5 * (np.sqrt(ts_val) - (poi_val - poi_true_val) / sigma) ** 2)
+            * np.exp(
+                -0.5 * (np.sqrt(ts_val) - (poi_val - poi_true_val) / self.sigma()) ** 2
+            )
         )
 
 
@@ -142,15 +150,22 @@ class QTildeMuTestStatistic(TestStatistic):
                 pois.append(parameter.name)
         return pois
 
+    def sigma(self):
+        if not isinstance(self.dataset, AsimovMapDataset):
+            raise AsimovApproximationError(
+                "`dataset` must be an `AsimovMapDataset` in order to calculate"
+                " `sigma`"
+            )
+        return np.sqrt(self.fit_result.covariance_result.matrix[0, 0])
+
     def asympotic_approximation(self, ts_val, poi_val, poi_true_val):
-        if isinstance(self.dataset, AsimovMapDataset):
-            sigma = np.sqrt(self.fit_result.covariance_result.matrix[0, 0])
-        else:
-            raise AsimovParameterError(
+        if not isinstance(self.dataset, AsimovMapDataset):
+            raise AsimovApproximationError(
                 "`dataset` must be an `AsimovMapDataset` in order to use the"
                 " `asympotic_approximation`"
             )
 
+        sigma = self.sigma()
         if ts_val > poi_val**2 / sigma**2:
             return (
                 1

@@ -147,9 +147,34 @@ def measurement_dataset(geometry3d, energy_axes, observation, dm_models):
 
     copy_models_to_dataset(dm_models, measurement_dataset)
 
-    measurement_dataset.fake()
+    measurement_dataset.fake(random_state=42)
 
     return measurement_dataset
+
+
+@pytest.fixture(scope="module")
+def nosignal_dataset(geometry3d, energy_axes, observation, dm_models):
+    from titrate.utils import copy_models_to_dataset
+
+    maker = MapDatasetMaker(selection=["exposure", "background", "psf", "edisp"])
+    maker_safe_mask = SafeMaskMaker(methods=["offset-max"], offset_max=4.0 * u.deg)
+
+    empty_measurement = MapDataset.create(
+        geometry3d,
+        energy_axis_true=energy_axes["true"],
+        migra_axis=energy_axes["migra"],
+        name="measurement",
+    )
+
+    nosignal_dataset = maker.run(empty_measurement, observation)
+    nosignal_dataset = maker_safe_mask.run(nosignal_dataset, observation)
+
+    copy_models_to_dataset(dm_models, nosignal_dataset)
+    nosignal_dataset.models.parameters["scale"].value = 0
+
+    nosignal_dataset.fake(random_state=1337)
+
+    return nosignal_dataset
 
 
 @pytest.fixture(scope="module")
