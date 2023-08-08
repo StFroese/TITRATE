@@ -1,4 +1,4 @@
-import urllib.request
+import os
 
 import astropy.constants as const
 import astropy.units as u
@@ -24,17 +24,13 @@ from gammapy.modeling.models import (
 
 
 @pytest.fixture(scope="module")
-def irfs(tmp_path_factory):
-    tmpdir = tmp_path_factory.mktemp("tmp-")
-
-    url = (
-        "https://github.com/gammapy/gammapy-extra/raw/"
-        "master/datasets/cta-1dc/caldb/data/cta/1dc/bcf/South_z20_50h/irf_file.fits"
+def irfs():
+    path = (
+        f"{os.environ.get('GAMMAPY_DATA')}"
+        f"/cta-1dc/caldb/data/cta/1dc/bcf/South_z20_50h/irf_file.fits"
     )
 
-    urllib.request.urlretrieve(url, f"{tmpdir}/irf_file.fits")
-
-    irfs = load_cta_irfs(f"{tmpdir}/irf_file.fits")
+    irfs = load_cta_irfs(path)
 
     return irfs
 
