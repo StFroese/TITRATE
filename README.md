@@ -1,6 +1,9 @@
 # *asymp*T*otic* *l*I*kelihood-based* T*ests* *for* *da*R*k* *m*A*t*T*er* *s*E*arch*
+<img src="https://anaconda.org/conda-forge/titrate/badges/version.svg"> <img src="https://anaconda.org/conda-forge/titrate/badges/platforms.svg"> <img src="https://badge.fury.io/py/titrate.svg">
 
 This package is based on the paper [Asymptotic formulae for likelihood-based tests of new physics](https://arxiv.org/abs/1007.1727).
+
+(your daily dose of [meme](https://i.imgflip.com/7v739g.jpg))
 
 ## Why does this package exist?
 
