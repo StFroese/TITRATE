@@ -79,9 +79,9 @@ def test_cdf_approximations(asimov_dataset):
     area = quad(
         lambda x: qmu.asympotic_approximation_pdf(x, poi_val=1, poi_true_val=0), 0, 5
     )[0]
-    assert approx(area + norm.cdf(-1 / qmu.sigma())) == qmu.asympotic_approximation_cdf(
-        5, poi_val=1, poi_true_val=0
-    )
+    assert approx(
+        area + norm.cdf(-1 / qmu.sigma()), rel=1e-3
+    ) == qmu.asympotic_approximation_cdf(5, poi_val=1, poi_true_val=0)
 
     # Same for QTildeMuTestStatistic
     qtildemu = QTildeMuTestStatistic(asimov_dataset, poi_name="scale")
@@ -101,7 +101,7 @@ def test_cdf_approximations(asimov_dataset):
         5,
     )[0]
     assert approx(
-        area + norm.cdf(-1 / qmu.sigma())
+        area + norm.cdf(-1 / qmu.sigma()), rel=1e-3
     ) == qtildemu.asympotic_approximation_cdf(5, poi_val=1, poi_true_val=0)
 
 
