@@ -5,14 +5,14 @@ def test_AsmyptoticValidator(measurement_dataset, asimov_dataset):
     from titrate.validation import AsymptoticValidator
 
     validator = AsymptoticValidator(measurement_dataset, asimov_dataset, "qmu", "scale")
-    result = validator.validate(n_toys=10)
+    result = validator.validate(n_toys=50)
     assert result["valid"]
 
     # same for qtildemu
     validator_tilde = AsymptoticValidator(
         measurement_dataset, asimov_dataset, "qtildemu", "scale"
     )
-    result_tilde = validator_tilde.validate(n_toys=10)
+    result_tilde = validator_tilde.validate(n_toys=50)
     assert result_tilde["valid"]
 
     with pytest.raises(ValueError) as excinfo:
