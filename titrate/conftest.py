@@ -12,7 +12,7 @@ from gammapy.astro.darkmatter import (
 )
 from gammapy.data import Observation, observatory_locations
 from gammapy.datasets import MapDataset
-from gammapy.irf import load_cta_irfs
+from gammapy.irf import load_irf_dict_from_file
 from gammapy.makers import MapDatasetMaker, SafeMaskMaker
 from gammapy.maps import MapAxis, WcsGeom, WcsNDMap
 from gammapy.modeling.models import (
@@ -30,7 +30,7 @@ def irfs():
         f"/cta-1dc/caldb/data/cta/1dc/bcf/South_z20_50h/irf_file.fits"
     )
 
-    irfs = load_cta_irfs(path)
+    irfs = load_irf_dict_from_file(path)
 
     return irfs
 
@@ -65,7 +65,7 @@ def geometry3d(observation, energy_axes):
     geom = WcsGeom.create(
         skydir=observation.pointing.fixed_icrs,
         width=(4, 4),
-        binsz=0.02,
+        binsz=0.04,
         frame="galactic",
         axes=[energy_axes["reco"]],
     )
@@ -78,7 +78,7 @@ def geometry2d(observation):
     geom = WcsGeom.create(
         skydir=observation.pointing.fixed_icrs,
         width=(4, 4),
-        binsz=0.02,
+        binsz=0.04,
         frame="galactic",
     )
 
