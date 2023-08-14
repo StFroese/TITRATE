@@ -23,9 +23,9 @@ What have I learned?
 
 ## What does this package offer?
 
-1. Adding Asimov datasets to gammapy
-2. Adding test statistics to gammapy
-3. Validation of test statistics
+1. Adding Asimov datasets to gammapy :heavy_check_mark:
+2. Adding test statistics to gammapy :heavy_check_mark:
+3. Validation of test statistics :heavy_check_mark:
 4. Calculation of ULs
 5. Calculation of median ULs and bands with asymptotic formulae and asimov datasets (faster than toy MCs)
 
