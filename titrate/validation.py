@@ -3,6 +3,7 @@ from functools import lru_cache
 import matplotlib.pyplot as plt
 import numpy as np
 from joblib import Parallel, delayed
+from scipy.stats import t
 
 from titrate.statistics import QMuTestStatistic, QTildeMuTestStatistic, kstest
 from titrate.utils import calc_ts_toyMC
@@ -25,6 +26,10 @@ class AsymptoticValidator:
     def validate(self, n_toys=1000):
         toys_ts_diff = self.toys_ts(n_toys, 1, 0)
         toys_ts_same = self.toys_ts(n_toys, 1, 1)
+
+        # only validate ts values above zero because QTildeMuTestStatistic cdf will have problems with negative values in sqrt
+        toys_ts_diff = toys_ts_diff[toys_ts_diff >= 0]
+        toys_ts_same = toys_ts_same[toys_ts_same >= 0]
 
         stat = self.statistic(self.asimov_dataset, self.poi_name)
         ks_diff = kstest(
@@ -68,7 +73,7 @@ class AsymptoticValidator:
             density=True,
             histtype="step",
             color="tab:blue",
-            label="diff, poi_val=1, poi_true_val=0",
+            label=r"$f(q_\mu\vert\mu^\prime)$, poi_val=1, poi_true_val=0",
         )
         plt.hist(
             toys_ts_same,
@@ -76,7 +81,7 @@ class AsymptoticValidator:
             density=True,
             histtype="step",
             color="tab:orange",
-            label="same, poi_val=1, poi_true_val=1",
+            label=r"$f(q_\mu\vert\mu)$, poi_val=1, poi_true_val=1",
         )
 
         lin_q = np.linspace(0, max_q, 1000)
@@ -86,13 +91,13 @@ class AsymptoticValidator:
             lin_q,
             stat.asympotic_approximation_pdf(lin_q, 1, 0),
             color="tab:blue",
-            label="diff, asympotic",
+            label=r"$f(q_\mu\vert\mu^\prime)$, asympotic",
         )
         plt.plot(
             lin_q,
             stat.asympotic_approximation_pdf(lin_q, 1, 1),
             color="tab:orange",
-            label="same, asympotic",
+            label=r"$f(q_\mu\vert\mu)$, asympotic",
         )
 
         plt.yscale("log")
