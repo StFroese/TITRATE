@@ -3,7 +3,6 @@ from functools import lru_cache
 import matplotlib.pyplot as plt
 import numpy as np
 from joblib import Parallel, delayed
-from scipy.stats import t
 
 from titrate.statistics import QMuTestStatistic, QTildeMuTestStatistic, kstest
 from titrate.utils import calc_ts_toyMC
@@ -16,7 +15,9 @@ class AsymptoticValidator:
         self, measurement_dataset, asimov_dataset, statistic="qmu", poi_name=""
     ):
         if statistic not in STATISTICS.keys():
-            raise ValueError("Statistic must be one of {}".format(statistic))
+            raise ValueError(
+                "Statistic must be one of {}".format(list(STATISTICS.keys()))
+            )
         self.statistic_key = statistic
         self.statistic = STATISTICS[statistic]
         self.measurement_dataset = measurement_dataset
@@ -27,7 +28,8 @@ class AsymptoticValidator:
         toys_ts_diff = self.toys_ts(n_toys, 1, 0)
         toys_ts_same = self.toys_ts(n_toys, 1, 1)
 
-        # only validate ts values above zero because QTildeMuTestStatistic cdf will have problems with negative values in sqrt
+        # only validate ts values above zero because
+        # QTildeMuTestStatistic cdf will have problems with negative values in sqrt
         toys_ts_diff = toys_ts_diff[toys_ts_diff >= 0]
         toys_ts_same = toys_ts_same[toys_ts_same >= 0]
 
