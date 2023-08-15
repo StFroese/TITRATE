@@ -151,5 +151,6 @@ def test_significance(asimov_dataset):
 def test_kstest():
     from titrate.statistics import kstest
 
+    np.random.seed(42)
     # Test that the KS test works for a normal distribution
-    assert kstest(norm.rvs(size=1000), norm.cdf) > 0.05
+    assert kstest(norm.rvs(size=10000), norm.cdf) > 0.05
