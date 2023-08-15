@@ -2,7 +2,7 @@ import abc
 
 import numpy as np
 from gammapy.modeling import Fit
-from scipy.stats import norm
+from scipy.stats import kstwo, norm
 
 from titrate.datasets import AsimovMapDataset
 
@@ -193,28 +193,21 @@ class QTildeMuTestStatistic(TestStatistic):
             )
 
         sigma = self.sigma()
-        if ts_val > poi_val**2 / sigma**2:
-            return (
-                1
-                / (np.sqrt(2 * np.pi) * 2 * poi_val / sigma)
-                * np.exp(
-                    -0.5
-                    * (
-                        ts_val
-                        - (poi_val**2 - 2 * poi_val * poi_true_val) / sigma**2
-                    )
-                    ** 2
-                    / (2 * poi_val / sigma) ** 2
-                )
-            )
-        else:
-            return (
-                1
-                / (2 * np.sqrt(2 * np.pi * ts_val))
-                * np.exp(
-                    -0.5 * (np.sqrt(ts_val) - (poi_val - poi_true_val) / sigma) ** 2
-                )
-            )
+        # if ts_val > poi_val**2 / sigma**2:
+        return np.where(
+            ts_val > poi_val**2 / sigma**2,
+            1
+            / (np.sqrt(2 * np.pi) * 2 * poi_val / sigma)
+            * np.exp(
+                -0.5
+                * (ts_val - (poi_val**2 - 2 * poi_val * poi_true_val) / sigma**2)
+                ** 2
+                / (2 * poi_val / sigma) ** 2
+            ),
+            1
+            / (2 * np.sqrt(2 * np.pi * ts_val))
+            * np.exp(-0.5 * (np.sqrt(ts_val) - (poi_val - poi_true_val) / sigma) ** 2),
+        )
 
     def asympotic_approximation_cdf(self, ts_val, poi_val, poi_true_val):
         if not isinstance(self.dataset, AsimovMapDataset):
@@ -224,13 +217,15 @@ class QTildeMuTestStatistic(TestStatistic):
             )
 
         sigma = self.sigma()
-        if ts_val > poi_val**2 / sigma**2:
-            return norm.cdf(
+
+        return np.where(
+            ts_val > poi_val**2 / sigma**2,
+            norm.cdf(
                 (ts_val - (poi_val**2 - 2 * poi_val * poi_true_val) / sigma**2)
                 / (2 * poi_val / sigma)
-            )
-        else:
-            return norm.cdf(np.sqrt(ts_val) - (poi_val - poi_true_val) / sigma)
+            ),
+            norm.cdf(np.sqrt(ts_val) - (poi_val - poi_true_val) / sigma),
+        )
 
     def pvalue(self, ts_val, poi_val, poi_true_val):
         return 1 - self.asympotic_approximation_cdf(ts_val, poi_val, poi_true_val)
@@ -244,3 +239,12 @@ class QTildeMuTestStatistic(TestStatistic):
                 return np.sqrt(ts_val)
 
         return norm.ppf(1 - self.pvalue(ts_val, poi_val, poi_true_val))
+
+
+def kstest(rvs, cdf):
+    """Kolmogorov-Smirnov test for goodness of fit."""
+    data_cdf = np.sum(rvs[:, None] <= rvs, axis=0) / len(rvs)
+
+    D = np.max(np.abs(cdf(rvs) - data_cdf))
+
+    return kstwo.sf(D, len(rvs))

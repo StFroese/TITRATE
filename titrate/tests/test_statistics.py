@@ -3,10 +3,10 @@ from pytest import approx
 from scipy.integrate import quad
 from scipy.stats import norm
 
-from titrate.statistics import QMuTestStatistic, QTildeMuTestStatistic
-
 
 def test_QMuTestStatistic(measurement_dataset):
+    from titrate.statistics import QMuTestStatistic
+
     qmu = QMuTestStatistic(measurement_dataset, poi_name="scale")
 
     assert qmu.check_for_pois() == ["scale", "norm"]
@@ -15,6 +15,8 @@ def test_QMuTestStatistic(measurement_dataset):
 
 
 def test_QTildeMuTestStatistic(measurement_dataset, nosignal_dataset):
+    from titrate.statistics import QTildeMuTestStatistic
+
     qtildemu = QTildeMuTestStatistic(measurement_dataset, poi_name="scale")
 
     assert qtildemu.check_for_pois() == ["scale", "norm"]
@@ -28,6 +30,8 @@ def test_QTildeMuTestStatistic(measurement_dataset, nosignal_dataset):
 
 
 def test_pdf_approximations(asimov_dataset):
+    from titrate.statistics import QMuTestStatistic, QTildeMuTestStatistic
+
     qmu = QMuTestStatistic(asimov_dataset, poi_name="scale")
 
     area = quad(
@@ -67,6 +71,8 @@ def test_pdf_approximations(asimov_dataset):
 
 
 def test_cdf_approximations(asimov_dataset):
+    from titrate.statistics import QMuTestStatistic, QTildeMuTestStatistic
+
     qmu = QMuTestStatistic(asimov_dataset, poi_name="scale")
 
     area = quad(
@@ -106,6 +112,8 @@ def test_cdf_approximations(asimov_dataset):
 
 
 def test_pvalue(asimov_dataset):
+    from titrate.statistics import QMuTestStatistic, QTildeMuTestStatistic
+
     qmu = QMuTestStatistic(asimov_dataset, poi_name="scale")
 
     assert approx(qmu.pvalue(0, 1, 1)) == 0.5
@@ -123,6 +131,8 @@ def test_pvalue(asimov_dataset):
 
 
 def test_significance(asimov_dataset):
+    from titrate.statistics import QMuTestStatistic, QTildeMuTestStatistic
+
     qmu = QMuTestStatistic(asimov_dataset, poi_name="scale")
 
     assert approx(qmu.significance(25, 1, 1)) == 5
@@ -136,3 +146,10 @@ def test_significance(asimov_dataset):
     ) / (2 / qtildemu.sigma())
     assert approx(qtildemu.significance(0.1, 1, 1)) == np.sqrt(0.1)
     assert approx(qtildemu.significance(0, 1, 0)) == -1 / qtildemu.sigma()
+
+
+def test_kstest():
+    from titrate.statistics import kstest
+
+    # Test that the KS test works for a normal distribution
+    assert kstest(norm.rvs(size=1000), norm.cdf) > 0.05
