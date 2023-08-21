@@ -174,25 +174,10 @@ def nosignal_dataset(geometry3d, energy_axes, observation, dm_models):
 
 
 @pytest.fixture(scope="module")
-def asimov_dataset(geometry3d, energy_axes, observation, dm_models):
+def asimov_dataset(measurement_dataset):
     from titrate.datasets import AsimovMapDataset
-    from titrate.utils import copy_models_to_dataset
 
-    maker = MapDatasetMaker(selection=["exposure", "background", "psf", "edisp"])
-    maker_safe_mask = SafeMaskMaker(methods=["offset-max"], offset_max=4.0 * u.deg)
-
-    empty_asimov = AsimovMapDataset.create(
-        geometry3d,
-        energy_axis_true=energy_axes["true"],
-        migra_axis=energy_axes["migra"],
-        name="asimov",
-    )
-
-    asimov_dataset = maker.run(empty_asimov, observation)
-    asimov_dataset = maker_safe_mask.run(asimov_dataset, observation)
-
-    copy_models_to_dataset(dm_models, asimov_dataset)
-
+    asimov_dataset = AsimovMapDataset.from_MapDataset(measurement_dataset)
     asimov_dataset.fake()
 
     return asimov_dataset
