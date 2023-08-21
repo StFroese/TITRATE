@@ -35,10 +35,14 @@ class AsymptoticValidator:
 
         stat = self.statistic(self.asimov_dataset, self.poi_name)
         ks_diff = kstest(
-            toys_ts_diff, lambda x: stat.asympotic_approximation_cdf(x, 1, 0)
+            toys_ts_diff,
+            lambda x: stat.asympotic_approximation_cdf(
+                poi_val=1, same=False, poi_true_val=0, ts_val=x
+            ),
         )
         ks_same = kstest(
-            toys_ts_same, lambda x: stat.asympotic_approximation_cdf(x, 1, 1)
+            toys_ts_same,
+            lambda x: stat.asympotic_approximation_cdf(poi_val=1, ts_val=x),
         )
 
         valid = ks_diff > 0.05 and ks_same > 0.05
@@ -91,13 +95,15 @@ class AsymptoticValidator:
 
         plt.plot(
             lin_q,
-            stat.asympotic_approximation_pdf(lin_q, 1, 0),
+            stat.asympotic_approximation_pdf(
+                poi_val=1, same=False, poi_true_val=0, ts_val=lin_q
+            ),
             color="tab:blue",
             label=r"$f(q_\mu\vert\mu^\prime)$, asympotic",
         )
         plt.plot(
             lin_q,
-            stat.asympotic_approximation_pdf(lin_q, 1, 1),
+            stat.asympotic_approximation_pdf(poi_val=1, ts_val=lin_q),
             color="tab:orange",
             label=r"$f(q_\mu\vert\mu)$, asympotic",
         )

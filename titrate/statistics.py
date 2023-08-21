@@ -141,11 +141,16 @@ class QMuTestStatistic(TestStatistic):
             ts_val, poi_val, same=False, poi_true_val=poi_true_val
         )
 
-    def significance(self, ts_val, poi_val, poi_true_val):
-        if poi_val == poi_true_val:
+    def significance(self, poi_val, same=True, poi_true_val=None, ts_val=None):
+        if ts_val is None:
+            ts_val = self.evaluate(poi_val)
+        if same:
             return np.sqrt(ts_val)
 
-        return norm.ppf(1 - self.pvalue(ts_val, poi_val, poi_true_val))
+        return norm.ppf(
+            1
+            - self.pvalue(poi_val, same=False, poi_true_val=poi_true_val, ts_val=ts_val)
+        )
 
 
 class QTildeMuTestStatistic(TestStatistic):
@@ -279,15 +284,20 @@ class QTildeMuTestStatistic(TestStatistic):
             ts_val, poi_val, same=False, poi_true_val=poi_true_val
         )
 
-    def significance(self, ts_val, poi_val, poi_true_val):
-        if poi_val == poi_true_val:
+    def significance(self, poi_val, same=True, poi_true_val=None, ts_val=None):
+        if ts_val is None:
+            ts_val = self.evaluate(poi_val)
+        if same:
             sigma = self.sigma()
             if ts_val > poi_val**2 / sigma**2:
                 return (ts_val + poi_val**2 / sigma**2) / (2 * poi_val / sigma)
             else:
                 return np.sqrt(ts_val)
 
-        return norm.ppf(1 - self.pvalue(ts_val, poi_val, poi_true_val))
+        return norm.ppf(
+            1
+            - self.pvalue(poi_val, same=False, poi_true_val=poi_true_val, ts_val=ts_val)
+        )
 
 
 def kstest(rvs, cdf):
