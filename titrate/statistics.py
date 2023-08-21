@@ -95,7 +95,16 @@ class QMuTestStatistic(TestStatistic):
             )
         return np.sqrt(self.fit_result.covariance_result.matrix[0, 0])
 
-    def asympotic_approximation_pdf(self, ts_val, poi_val, poi_true_val):
+    def asympotic_approximation_pdf(
+        self, ts_val, poi_val, same=True, poi_true_val=None
+    ):
+        if same:
+            return (
+                1
+                / (2 * np.sqrt(2 * np.pi * ts_val))
+                * np.exp(-0.5 * (np.sqrt(ts_val)) ** 2)
+            )
+
         if not isinstance(self.dataset, AsimovMapDataset):
             raise AsimovApproximationError(
                 "`dataset` must be an `AsimovMapDataset` in order to use the"
@@ -109,7 +118,12 @@ class QMuTestStatistic(TestStatistic):
             )
         )
 
-    def asympotic_approximation_cdf(self, ts_val, poi_val, poi_true_val):
+    def asympotic_approximation_cdf(
+        self, ts_val, poi_val, same=True, poi_true_val=None
+    ):
+        if same:
+            return norm.cdf(np.sqrt(ts_val))
+
         if not isinstance(self.dataset, AsimovMapDataset):
             raise AsimovApproximationError(
                 "`dataset` must be an `AsimovMapDataset` in order to use the"
@@ -118,8 +132,14 @@ class QMuTestStatistic(TestStatistic):
 
         return norm.cdf(np.sqrt(ts_val) - (poi_val - poi_true_val) / self.sigma())
 
-    def pvalue(self, ts_val, poi_val, poi_true_val):
-        return 1 - self.asympotic_approximation_cdf(ts_val, poi_val, poi_true_val)
+    def pvalue(self, poi_val, same=True, poi_true_val=None, ts_val=None):
+        if ts_val is None:
+            ts_val = self.evaluate(poi_val)
+        if same:
+            return 1 - self.asympotic_approximation_cdf(ts_val, poi_val)
+        return 1 - self.asympotic_approximation_cdf(
+            ts_val, poi_val, same=False, poi_true_val=poi_true_val
+        )
 
     def significance(self, ts_val, poi_val, poi_true_val):
         if poi_val == poi_true_val:
@@ -185,7 +205,9 @@ class QTildeMuTestStatistic(TestStatistic):
             )
         return np.sqrt(self.fit_result.covariance_result.matrix[0, 0])
 
-    def asympotic_approximation_pdf(self, ts_val, poi_val, poi_true_val):
+    def asympotic_approximation_pdf(
+        self, ts_val, poi_val, same=True, poi_true_val=None
+    ):
         if not isinstance(self.dataset, AsimovMapDataset):
             raise AsimovApproximationError(
                 "`dataset` must be an `AsimovMapDataset` in order to use the"
@@ -193,7 +215,20 @@ class QTildeMuTestStatistic(TestStatistic):
             )
 
         sigma = self.sigma()
-        # if ts_val > poi_val**2 / sigma**2:
+
+        if same:
+            return np.where(
+                ts_val > poi_val**2 / sigma**2,
+                1
+                / (np.sqrt(2 * np.pi) * 2 * poi_val / sigma)
+                * np.exp(
+                    -0.5
+                    * (ts_val + poi_val**2 / sigma**2) ** 2
+                    / (2 * poi_val / sigma) ** 2
+                ),
+                1 / (2 * np.sqrt(2 * np.pi * ts_val)) * np.exp(-0.5 * ts_val),
+            )
+
         return np.where(
             ts_val > poi_val**2 / sigma**2,
             1
@@ -209,7 +244,9 @@ class QTildeMuTestStatistic(TestStatistic):
             * np.exp(-0.5 * (np.sqrt(ts_val) - (poi_val - poi_true_val) / sigma) ** 2),
         )
 
-    def asympotic_approximation_cdf(self, ts_val, poi_val, poi_true_val):
+    def asympotic_approximation_cdf(
+        self, ts_val, poi_val, same=True, poi_true_val=None
+    ):
         if not isinstance(self.dataset, AsimovMapDataset):
             raise AsimovApproximationError(
                 "`dataset` must be an `AsimovMapDataset` in order to use the"
@@ -217,6 +254,12 @@ class QTildeMuTestStatistic(TestStatistic):
             )
 
         sigma = self.sigma()
+        if same:
+            return np.where(
+                ts_val > poi_val**2 / sigma**2,
+                norm.cdf((ts_val + poi_val**2 / sigma**2) / (2 * poi_val / sigma)),
+                norm.cdf(np.sqrt(ts_val)),
+            )
 
         return np.where(
             ts_val > poi_val**2 / sigma**2,
@@ -227,8 +270,14 @@ class QTildeMuTestStatistic(TestStatistic):
             norm.cdf(np.sqrt(ts_val) - (poi_val - poi_true_val) / sigma),
         )
 
-    def pvalue(self, ts_val, poi_val, poi_true_val):
-        return 1 - self.asympotic_approximation_cdf(ts_val, poi_val, poi_true_val)
+    def pvalue(self, poi_val, same=True, poi_true_val=None, ts_val=None):
+        if ts_val is None:
+            ts_val = self.evaluate(poi_val)
+        if same:
+            return 1 - self.asympotic_approximation_cdf(ts_val, poi_val)
+        return 1 - self.asympotic_approximation_cdf(
+            ts_val, poi_val, same=False, poi_true_val=poi_true_val
+        )
 
     def significance(self, ts_val, poi_val, poi_true_val):
         if poi_val == poi_true_val:
