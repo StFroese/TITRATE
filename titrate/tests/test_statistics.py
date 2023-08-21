@@ -35,14 +35,16 @@ def test_pdf_approximations(asimov_dataset):
     qmu = QMuTestStatistic(asimov_dataset, poi_name="scale")
 
     area = quad(
-        lambda x: qmu.asympotic_approximation_pdf(x, poi_val=1, poi_true_val=1),
+        lambda x: qmu.asympotic_approximation_pdf(x, poi_val=1),
         0,
         np.inf,
     )[0]
     assert approx(area) == 0.5
 
     area = quad(
-        lambda x: qmu.asympotic_approximation_pdf(x, poi_val=1, poi_true_val=0),
+        lambda x: qmu.asympotic_approximation_pdf(
+            x, poi_val=1, same=False, poi_true_val=0
+        ),
         0,
         np.inf,
     )[0]
@@ -54,14 +56,16 @@ def test_pdf_approximations(asimov_dataset):
     qtildemu = QTildeMuTestStatistic(asimov_dataset, poi_name="scale")
 
     area = quad(
-        lambda x: qtildemu.asympotic_approximation_pdf(x, poi_val=1, poi_true_val=1),
+        lambda x: qtildemu.asympotic_approximation_pdf(x, poi_val=1),
         0,
         np.inf,
     )[0]
     assert approx(area) == 0.5
 
     area = quad(
-        lambda x: qtildemu.asympotic_approximation_pdf(x, poi_val=1, poi_true_val=0),
+        lambda x: qtildemu.asympotic_approximation_pdf(
+            x, poi_val=1, same=False, poi_true_val=0
+        ),
         0,
         np.inf,
     )[0]
@@ -75,40 +79,40 @@ def test_cdf_approximations(asimov_dataset):
 
     qmu = QMuTestStatistic(asimov_dataset, poi_name="scale")
 
-    area = quad(
-        lambda x: qmu.asympotic_approximation_pdf(x, poi_val=1, poi_true_val=1), 0, 5
-    )[0]
-    assert approx(area + 0.5) == qmu.asympotic_approximation_cdf(
-        5, poi_val=1, poi_true_val=1
-    )
+    area = quad(lambda x: qmu.asympotic_approximation_pdf(x, poi_val=1), 0, 5)[0]
+    assert approx(area + 0.5) == qmu.asympotic_approximation_cdf(5, poi_val=1)
 
     area = quad(
-        lambda x: qmu.asympotic_approximation_pdf(x, poi_val=1, poi_true_val=0), 0, 5
+        lambda x: qmu.asympotic_approximation_pdf(
+            x, poi_val=1, same=False, poi_true_val=0
+        ),
+        0,
+        5,
     )[0]
     assert approx(
         area + norm.cdf(-1 / qmu.sigma()), rel=1e-3
-    ) == qmu.asympotic_approximation_cdf(5, poi_val=1, poi_true_val=0)
+    ) == qmu.asympotic_approximation_cdf(5, poi_val=1, same=False, poi_true_val=0)
 
     # Same for QTildeMuTestStatistic
     qtildemu = QTildeMuTestStatistic(asimov_dataset, poi_name="scale")
 
     area = quad(
-        lambda x: qtildemu.asympotic_approximation_pdf(x, poi_val=1, poi_true_val=1),
+        lambda x: qtildemu.asympotic_approximation_pdf(x, poi_val=1),
         0,
         5,
     )[0]
-    assert approx(area + 0.5) == qtildemu.asympotic_approximation_cdf(
-        5, poi_val=1, poi_true_val=1
-    )
+    assert approx(area + 0.5) == qtildemu.asympotic_approximation_cdf(5, poi_val=1)
 
     area = quad(
-        lambda x: qtildemu.asympotic_approximation_pdf(x, poi_val=1, poi_true_val=0),
+        lambda x: qtildemu.asympotic_approximation_pdf(
+            x, poi_val=1, same=False, poi_true_val=0
+        ),
         0,
         5,
     )[0]
     assert approx(
         area + norm.cdf(-1 / qmu.sigma()), rel=1e-3
-    ) == qtildemu.asympotic_approximation_cdf(5, poi_val=1, poi_true_val=0)
+    ) == qtildemu.asympotic_approximation_cdf(5, poi_val=1, same=False, poi_true_val=0)
 
 
 def test_pvalue(asimov_dataset):
@@ -116,18 +120,25 @@ def test_pvalue(asimov_dataset):
 
     qmu = QMuTestStatistic(asimov_dataset, poi_name="scale")
 
-    assert approx(qmu.pvalue(0, 1, 1)) == 0.5
-    assert approx(qmu.pvalue(np.inf, 1, 1)) == 0
-    assert approx(qmu.pvalue(0, 1, 0)) == 1 - norm.cdf(-1 / qmu.sigma())
-    assert approx(qmu.pvalue(np.inf, 1, 0)) == 0
+    assert approx(qmu.pvalue(poi_val=1, ts_val=0)) == 0.5
+    assert approx(qmu.pvalue(poi_val=1, ts_val=np.inf)) == 0
+    assert approx(
+        qmu.pvalue(poi_val=1, same=False, poi_true_val=0, ts_val=0)
+    ) == 1 - norm.cdf(-1 / qmu.sigma())
+    assert approx(qmu.pvalue(poi_val=1, same=False, poi_true_val=0, ts_val=np.inf)) == 0
 
     # Same for QTildeMuTestStatistic
     qtildemu = QTildeMuTestStatistic(asimov_dataset, poi_name="scale")
 
-    assert approx(qtildemu.pvalue(0, 1, 1)) == 0.5
-    assert approx(qtildemu.pvalue(np.inf, 1, 1)) == 0
-    assert approx(qtildemu.pvalue(0, 1, 0)) == 1 - norm.cdf(-1 / qtildemu.sigma())
-    assert approx(qtildemu.pvalue(np.inf, 1, 0)) == 0
+    assert approx(qtildemu.pvalue(poi_val=1, ts_val=0)) == 0.5
+    assert approx(qtildemu.pvalue(poi_val=1, ts_val=np.inf)) == 0
+    assert approx(
+        qtildemu.pvalue(poi_val=1, same=False, poi_true_val=0, ts_val=0)
+    ) == 1 - norm.cdf(-1 / qtildemu.sigma())
+    assert (
+        approx(qtildemu.pvalue(poi_val=1, same=False, poi_true_val=0, ts_val=np.inf))
+        == 0
+    )
 
 
 def test_significance(asimov_dataset):
@@ -135,17 +146,23 @@ def test_significance(asimov_dataset):
 
     qmu = QMuTestStatistic(asimov_dataset, poi_name="scale")
 
-    assert approx(qmu.significance(25, 1, 1)) == 5
-    assert approx(qmu.significance(0, 1, 0)) == -1 / qmu.sigma()
+    assert approx(qmu.significance(poi_val=1, ts_val=25)) == 5
+    assert (
+        approx(qmu.significance(poi_val=1, same=False, poi_true_val=0, ts_val=0))
+        == -1 / qmu.sigma()
+    )
 
     qtildemu = QTildeMuTestStatistic(asimov_dataset, poi_name="scale")
 
-    assert approx(qtildemu.significance(25, 0, 0)) == np.inf
-    assert approx(qtildemu.significance(25, 1, 1)) == (
+    assert approx(qtildemu.significance(poi_val=0, ts_val=25)) == np.inf
+    assert approx(qtildemu.significance(poi_val=1, ts_val=25)) == (
         25 + 1 / qtildemu.sigma() ** 2
     ) / (2 / qtildemu.sigma())
-    assert approx(qtildemu.significance(0.1, 1, 1)) == np.sqrt(0.1)
-    assert approx(qtildemu.significance(0, 1, 0)) == -1 / qtildemu.sigma()
+    assert approx(qtildemu.significance(poi_val=1, ts_val=0.1)) == np.sqrt(0.1)
+    assert (
+        approx(qtildemu.significance(poi_val=1, same=False, poi_true_val=0, ts_val=0))
+        == -1 / qtildemu.sigma()
+    )
 
 
 def test_kstest():
