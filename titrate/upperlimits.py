@@ -1,18 +1,34 @@
+import astropy.units as u
 import numpy as np
+import pandas as pd
+from gammapy.astro.darkmatter import DarkMatterAnnihilationSpectralModel
 from gammapy.modeling import Fit
+from gammapy.modeling.models import (
+    FoVBackgroundModel,
+    Models,
+    SkyModel,
+    TemplateSpatialModel,
+)
+from joblib import Parallel, delayed
 from scipy.interpolate import interp1d
 from scipy.optimize import brentq
 from scipy.stats import norm
 
 from titrate.datasets import AsimovMapDataset
 from titrate.statistics import QMuTestStatistic, QTildeMuTestStatistic
+from titrate.utils import copy_models_to_dataset
 
 STATISTICS = {"qmu": QMuTestStatistic, "qtildemu": QTildeMuTestStatistic}
 
 
 class ULCalculator:
     def __init__(
-        self, measurement_dataset, statistic="qmu", poi_name="", cl=0.95, cl_type="s"
+        self,
+        measurement_dataset,
+        statistic="qmu",
+        poi_name="scale",
+        cl=0.95,
+        cl_type="s",
     ):
         self.measurement_dataset = measurement_dataset
         self.poi_name = poi_name
@@ -114,3 +130,93 @@ class ULCalculator:
             return sigma * (norm.ppf(self.cl) + n_sigma)
         elif cl_type == "s":
             return sigma * (norm.ppf(1 - (1 - self.cl) * norm.pdf(n_sigma)) + n_sigma)
+
+
+class ULFactory:
+    def __init__(
+        self,
+        measurement_dataset,
+        channels,
+        mass_min,
+        mass_max,
+        n_steps,
+        jfactor_map,
+        **kwargs,
+    ):
+        self.measurement_dataset = measurement_dataset
+        self.channels = channels
+        self.masses = np.geomspace(
+            mass_min.to_value("TeV"), mass_max.to_value("TeV"), n_steps
+        )
+        self.jfactor_map = jfactor_map
+        self.kwargs = kwargs
+        self.uls = None
+        self.expected_uls = None
+
+    def setup_models(self):
+        models = []
+        spatial_model = TemplateSpatialModel(self.jfactor_map, normalize=False)
+        bkg_model = FoVBackgroundModel(dataset_name="foo")
+        for channel in self.channels:
+            for mass in self.masses:
+                spectral_model = DarkMatterAnnihilationSpectralModel(
+                    mass=mass * u.TeV, channel=channel
+                )
+                sky_model = SkyModel(
+                    spatial_model=spatial_model,
+                    spectral_model=spectral_model,
+                    name=f"mass_{mass:.2f}TeV_channel_{channel}",
+                )
+                models.append(Models([sky_model, bkg_model]))
+
+        return models
+
+    def setup_calculator(self, models):
+        measurement_copy = self.measurement_dataset.copy()
+        copy_models_to_dataset(models, measurement_copy)
+        return ULCalculator(measurement_copy, **self.kwargs)
+
+    def compute_uls(self):
+        uls = Parallel(n_jobs=-1, verbose=0)(
+            delayed(self.setup_calculator(models).compute)()
+            for models in self.setup_models()
+        )
+        return uls
+
+    def compute_expected(self):
+        expected_uls = Parallel(n_jobs=-1, verbose=0)(
+            delayed(self.setup_calculator(models).expected_uls)()
+            for models in self.setup_models()
+        )
+        return expected_uls
+
+    def compute(self):
+        self.uls = self.compute_uls()
+        self.expected_uls = self.compute_expected()
+
+    def save_results(self, path):
+        if self.uls is None or self.expected_uls is None:
+            raise ValueError("No results computed yet. Run compute() first.")
+
+        # prepare expected_uls
+        median_uls = [ul["med"] for ul in self.expected_uls]
+        one_sigma_minus_uls = [ul["1sig"][0] for ul in self.expected_uls]
+        one_sigma_plus_uls = [ul["1sig"][1] for ul in self.expected_uls]
+        two_sigma_minus_uls = [ul["2sig"][0] for ul in self.expected_uls]
+        two_sigma_plus_uls = [ul["2sig"][1] for ul in self.expected_uls]
+
+        # to dict
+        print(len(self.masses))
+        ul_dict = {
+            "mass": np.repeat(self.masses, len(self.channels)),
+            "channel": np.repeat(self.channels, len(self.masses)),
+            "ul": self.uls,
+            "median_ul": median_uls,
+            "1sigma_minus_ul": one_sigma_minus_uls,
+            "1sigma_plus_ul": one_sigma_plus_uls,
+            "2sigma_minus_ul": two_sigma_minus_uls,
+            "2sigma_plus_ul": two_sigma_plus_uls,
+        }
+        print(ul_dict)
+        df = pd.DataFrame(ul_dict)
+        df.to_hdf(path, key="df", mode="w")
