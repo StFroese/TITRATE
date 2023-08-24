@@ -1,6 +1,6 @@
 import astropy.units as u
 import numpy as np
-import pandas as pd
+from astropy.table import QTable
 from gammapy.astro.darkmatter import DarkMatterAnnihilationSpectralModel
 from gammapy.modeling import Fit
 from gammapy.modeling.models import (
@@ -19,6 +19,7 @@ from titrate.statistics import QMuTestStatistic, QTildeMuTestStatistic
 from titrate.utils import copy_models_to_dataset
 
 STATISTICS = {"qmu": QMuTestStatistic, "qtildemu": QTildeMuTestStatistic}
+CS = DarkMatterAnnihilationSpectralModel.THERMAL_RELIC_CROSS_SECTION
 
 
 class ULCalculator:
@@ -52,10 +53,12 @@ class ULCalculator:
             poi_ul = 1e-2
         else:
             poi_ul = poi_best + 0.01 * poi_best
-        while self.pvalue(poi_ul, cl_type=self.cl_type) > 1 - self.cl:
+        while self.pvalue(poi_ul, cl_type=self.cl_type) > 1 - self.cl or np.isnan(
+            self.pvalue(poi_ul, cl_type=self.cl_type)
+        ):
             poi_ul *= 2
 
-        interp_ul_points = np.linspace(poi_ul / 10, poi_ul, 10)
+        interp_ul_points = np.linspace(poi_ul / 2, poi_ul, 10)
         interp_pvalues = np.array(
             [
                 self.pvalue(interp_ul, cl_type=self.cl_type)
@@ -63,7 +66,7 @@ class ULCalculator:
             ]
         ).ravel()
         interpolation = interp1d(interp_ul_points, interp_pvalues - 1 + self.cl)
-        poi_ul = brentq(interpolation, poi_ul / 10, poi_ul)
+        poi_ul = brentq(interpolation, poi_ul / 2, poi_ul)
 
         return poi_ul
 
@@ -141,6 +144,8 @@ class ULFactory:
         mass_max,
         n_steps,
         jfactor_map,
+        cl_type="s",
+        cl=0.95,
         **kwargs,
     ):
         self.measurement_dataset = measurement_dataset
@@ -149,6 +154,8 @@ class ULFactory:
             mass_min.to_value("TeV"), mass_max.to_value("TeV"), n_steps
         )
         self.jfactor_map = jfactor_map
+        self.cl_type = cl_type
+        self.cl = cl
         self.kwargs = kwargs
         self.uls = None
         self.expected_uls = None
@@ -194,7 +201,7 @@ class ULFactory:
         self.uls = self.compute_uls()
         self.expected_uls = self.compute_expected()
 
-    def save_results(self, path):
+    def save_results(self, path, overwrite=False, **kwargs):
         if self.uls is None or self.expected_uls is None:
             raise ValueError("No results computed yet. Run compute() first.")
 
@@ -206,17 +213,24 @@ class ULFactory:
         two_sigma_plus_uls = [ul["2sig"][1] for ul in self.expected_uls]
 
         # to dict
-        print(len(self.masses))
         ul_dict = {
-            "mass": np.repeat(self.masses, len(self.channels)),
+            "mass": np.repeat(self.masses, len(self.channels)) * u.TeV,
             "channel": np.repeat(self.channels, len(self.masses)),
-            "ul": self.uls,
-            "median_ul": median_uls,
-            "1sigma_minus_ul": one_sigma_minus_uls,
-            "1sigma_plus_ul": one_sigma_plus_uls,
-            "2sigma_minus_ul": two_sigma_minus_uls,
-            "2sigma_plus_ul": two_sigma_plus_uls,
+            "cl_type": np.repeat(self.cl_type, len(self.channels) * len(self.masses)),
+            "cl": np.repeat(self.cl, len(self.channels) * len(self.masses)),
+            "ul": self.uls * CS,
+            "median_ul": median_uls * CS,
+            "1sigma_minus_ul": one_sigma_minus_uls * CS,
+            "1sigma_plus_ul": one_sigma_plus_uls * CS,
+            "2sigma_minus_ul": two_sigma_minus_uls * CS,
+            "2sigma_plus_ul": two_sigma_plus_uls * CS,
         }
-        print(ul_dict)
-        df = pd.DataFrame(ul_dict)
-        df.to_hdf(path, key="df", mode="w")
+        qtable = QTable(ul_dict)
+        qtable.write(
+            path,
+            format="hdf5",
+            path="upperlimits",
+            overwrite=overwrite,
+            serialize_meta=True,
+            **kwargs,
+        )
