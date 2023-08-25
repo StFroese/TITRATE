@@ -99,7 +99,7 @@ def ursa_major_ii_profile():
 
 
 @pytest.fixture(scope="module")
-def dm_models(observation, geometry2d, ursa_major_ii_profile):
+def jfact_map(geometry2d, ursa_major_ii_profile):
     jfactory = JFactory(
         geom=geometry2d,
         profile=ursa_major_ii_profile,
@@ -107,6 +107,12 @@ def dm_models(observation, geometry2d, ursa_major_ii_profile):
     )
     jfactor = jfactory.compute_differential_jfactor()
     jfact_map = WcsNDMap(geom=geometry2d, data=jfactor.value, unit=jfactor.unit)
+
+    return jfact_map
+
+
+@pytest.fixture(scope="module")
+def dm_models(jfact_map):
     spatial_model = TemplateSpatialModel(jfact_map, normalize=False)
 
     spectral_model = DarkMatterAnnihilationSpectralModel(mass=50 * u.TeV, channel="b")
