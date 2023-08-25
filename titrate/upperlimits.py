@@ -205,32 +205,47 @@ class ULFactory:
         if self.uls is None or self.expected_uls is None:
             raise ValueError("No results computed yet. Run compute() first.")
 
-        # prepare expected_uls
-        median_uls = [ul["med"] for ul in self.expected_uls]
-        one_sigma_minus_uls = [ul["1sig"][0] for ul in self.expected_uls]
-        one_sigma_plus_uls = [ul["1sig"][1] for ul in self.expected_uls]
-        two_sigma_minus_uls = [ul["2sig"][0] for ul in self.expected_uls]
-        two_sigma_plus_uls = [ul["2sig"][1] for ul in self.expected_uls]
-
-        # to dict
-        ul_dict = {
-            "mass": np.repeat(self.masses, len(self.channels)) * u.TeV,
-            "channel": np.repeat(self.channels, len(self.masses)),
-            "cl_type": np.repeat(self.cl_type, len(self.channels) * len(self.masses)),
-            "cl": np.repeat(self.cl, len(self.channels) * len(self.masses)),
-            "ul": self.uls * CS,
-            "median_ul": median_uls * CS,
-            "1sigma_minus_ul": one_sigma_minus_uls * CS,
-            "1sigma_plus_ul": one_sigma_plus_uls * CS,
-            "2sigma_minus_ul": two_sigma_minus_uls * CS,
-            "2sigma_plus_ul": two_sigma_plus_uls * CS,
-        }
-        qtable = QTable(ul_dict)
-        qtable.write(
-            path,
-            format="hdf5",
-            path="upperlimits",
-            overwrite=overwrite,
-            serialize_meta=True,
-            **kwargs,
+        # prepare uls
+        n_channels = len(self.channels)
+        uls = np.array(self.uls).reshape(n_channels, -1)
+        median_uls = np.array([ul["med"] for ul in self.expected_uls]).reshape(
+            n_channels, -1
         )
+        one_sigma_minus_uls = np.array(
+            [ul["1sig"][0] for ul in self.expected_uls]
+        ).reshape(n_channels, -1)
+        one_sigma_plus_uls = np.array(
+            [ul["1sig"][1] for ul in self.expected_uls]
+        ).reshape(n_channels, -1)
+        two_sigma_minus_uls = np.array(
+            [ul["2sig"][0] for ul in self.expected_uls]
+        ).reshape(n_channels, -1)
+        two_sigma_plus_uls = np.array(
+            [ul["2sig"][1] for ul in self.expected_uls]
+        ).reshape(n_channels, -1)
+
+        for ch_idx, channel in enumerate(self.channels):
+            # to dict
+            ul_dict = {
+                "mass": self.masses * u.TeV,
+                "channel": np.repeat(channel, len(self.masses)),
+                "cl_type": np.repeat(self.cl_type, len(self.masses)),
+                "cl": np.repeat(self.cl, len(self.masses)),
+                "ul": uls[ch_idx] * CS,
+                "median_ul": median_uls[ch_idx] * CS,
+                "1sigma_minus_ul": one_sigma_minus_uls[ch_idx] * CS,
+                "1sigma_plus_ul": one_sigma_plus_uls[ch_idx] * CS,
+                "2sigma_minus_ul": two_sigma_minus_uls[ch_idx] * CS,
+                "2sigma_plus_ul": two_sigma_plus_uls[ch_idx] * CS,
+            }
+            print(ul_dict)
+            qtable = QTable(ul_dict)
+            qtable.write(
+                path,
+                format="hdf5",
+                path=f"{channel}",
+                overwrite=overwrite,
+                append=True,
+                serialize_meta=True,
+                **kwargs,
+            )

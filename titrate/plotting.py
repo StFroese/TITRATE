@@ -1,3 +1,4 @@
+import h5py
 import matplotlib.pyplot as plt
 from astropy import visualization as viz
 from astropy.table import QTable, unique
@@ -8,22 +9,24 @@ class UpperLimitPlotter:
         self.path = path
         self.axes = axes if axes is not None else plt.gca()
 
-        table = QTable.read(self.path, path="upperlimits")
-
-        if channel not in unique(table, keys="channel")["channel"]:
+        try:
+            table = QTable.read(self.path, path=channel)
+        except OSError:
+            channels = list(h5py.File("/Users/stefan/Downloads/test.hdf5").keys())
+            channels = [ch for ch in channels if "meta" not in ch]
             raise KeyError(
-                f"Channel {channel} not in dataframe."
-                f'Choose from {unique(table, keys="channel")["channel"].tolist()}'
+                f"Channel {channel} not in dataframe. " f"Choose from {channels}"
             )
+
         self.channel = channel
 
-        masses = unique(table, keys="mass")["mass"]
-        uls = table[table["channel"] == self.channel]["ul"]
-        median = table[table["channel"] == self.channel]["median_ul"]
-        one_sigma_minus = table[table["channel"] == self.channel]["1sigma_minus_ul"]
-        one_sigma_plus = table[table["channel"] == self.channel]["1sigma_plus_ul"]
-        two_sigma_minus = table[table["channel"] == self.channel]["2sigma_minus_ul"]
-        two_sigma_plus = table[table["channel"] == self.channel]["2sigma_plus_ul"]
+        masses = table["mass"]
+        uls = table["ul"]
+        median = table["median_ul"]
+        one_sigma_minus = table["1sigma_minus_ul"]
+        one_sigma_plus = table["1sigma_plus_ul"]
+        two_sigma_minus = table["2sigma_minus_ul"]
+        two_sigma_plus = table["2sigma_plus_ul"]
 
         with viz.quantity_support():
             self.plot_channel(

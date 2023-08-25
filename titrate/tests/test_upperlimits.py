@@ -41,20 +41,21 @@ def upperlimits_file(jfact_map, measurement_dataset, tmp_path_factory):
     return f"{data}/ul.hdf5"
 
 
-def test_ULFactory(upperlimits_file):
-    table = QTable.read(upperlimits_file, path="upperlimits")
-    assert np.all(table["mass"] == np.repeat(np.geomspace(0.1, 100, 5) * u.TeV, 2))
-    assert len(table["ul"]) == 10
-    assert len(table["median_ul"]) == 10
-    assert len(table["1sigma_minus_ul"]) == 10
-    assert len(table["1sigma_plus_ul"]) == 10
-    assert len(table["2sigma_minus_ul"]) == 10
-    assert len(table["2sigma_plus_ul"]) == 10
-    assert len(table["cl_type"]) == 10
+@pytest.mark.parametrize("channel", ["b", "W"])
+def test_ULFactory(upperlimits_file, channel):
+    table = QTable.read(upperlimits_file, path=channel)
+    assert np.all(table["mass"] == np.geomspace(0.1, 100, 5) * u.TeV)
+    assert len(table["ul"]) == 5
+    assert len(table["median_ul"]) == 5
+    assert len(table["1sigma_minus_ul"]) == 5
+    assert len(table["1sigma_plus_ul"]) == 5
+    assert len(table["2sigma_minus_ul"]) == 5
+    assert len(table["2sigma_plus_ul"]) == 5
+    assert len(table["cl_type"]) == 5
     assert np.all(table["cl_type"] == "s")
-    assert len(table["cl"]) == 10
+    assert len(table["cl"]) == 5
     assert np.all(table["cl"] == 0.95)
-    assert np.all(table["channel"] == sorted(["b", "W"] * 5)[::-1])
+    assert np.all(table["channel"] == sorted([channel] * 5)[::-1])
 
 
 def test_UpperLimitPlotter(upperlimits_file):
