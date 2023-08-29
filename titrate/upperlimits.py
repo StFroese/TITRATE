@@ -238,7 +238,6 @@ class ULFactory:
                 "2sigma_minus_ul": two_sigma_minus_uls[ch_idx] * CS,
                 "2sigma_plus_ul": two_sigma_plus_uls[ch_idx] * CS,
             }
-            print(ul_dict)
             qtable = QTable(ul_dict)
             qtable.write(
                 path,
