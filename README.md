@@ -1,5 +1,5 @@
 # *asymp*T*otic* *l*I*kelihood-based* T*ests* *for* *da*R*k* *m*A*t*T*er* *s*E*arch*
-<img src="https://anaconda.org/conda-forge/titrate/badges/version.svg"> <img src="https://anaconda.org/conda-forge/titrate/badges/platforms.svg"> <img src="https://badge.fury.io/py/titrate.svg">
+[<img src="https://anaconda.org/conda-forge/titrate/badges/version.svg">](https://anaconda.org/conda-forge/titrate) <img src="https://anaconda.org/conda-forge/titrate/badges/platforms.svg"> [<img src="https://badge.fury.io/py/titrate.svg">](https://pypi.org/project/titrate/)
 
 This package is based on the paper [Asymptotic formulae for likelihood-based tests of new physics](https://arxiv.org/abs/1007.1727).
 
@@ -26,8 +26,8 @@ What have I learned?
 1. Adding Asimov datasets to gammapy :heavy_check_mark:
 2. Adding test statistics to gammapy :heavy_check_mark:
 3. Validation of test statistics :heavy_check_mark:
-4. Calculation of ULs
-5. Calculation of median ULs and bands with asymptotic formulae and asimov datasets (faster than toy MCs)
+4. Calculation of ULs :heavy_check_mark:
+5. Calculation of median ULs and bands with asymptotic formulae and asimov datasets (faster than toy MCs) :heavy_check_mark:
 
 ## Disclaimer
 This is not a finished version yet and can contain drastic changes
