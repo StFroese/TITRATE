@@ -43,7 +43,7 @@ def upperlimits_file(jfact_map, measurement_dataset, tmp_path_factory):
 
 @pytest.mark.parametrize("channel", ["b", "W"])
 def test_ULFactory(upperlimits_file, channel):
-    table = QTable.read(upperlimits_file, path=channel)
+    table = QTable.read(upperlimits_file, path=f"upperlimits/{channel}")
     assert np.all(table["mass"] == np.geomspace(0.1, 100, 5) * u.TeV)
     assert len(table["ul"]) == 5
     assert len(table["median_ul"]) == 5
@@ -64,4 +64,4 @@ def test_UpperLimitPlotter(upperlimits_file):
     fig, axs = plt.subplots(nrows=1, ncols=2)
 
     for channel, ax in zip(["b", "W"], np.array(axs).reshape(-1)):
-        UpperLimitPlotter(upperlimits_file, channel=channel, axes=ax)
+        UpperLimitPlotter(upperlimits_file, channel=channel, ax=ax)
