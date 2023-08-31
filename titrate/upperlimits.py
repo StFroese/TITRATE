@@ -242,7 +242,7 @@ class ULFactory:
             qtable.write(
                 path,
                 format="hdf5",
-                path=f"{channel}",
+                path=f"upperlimits/{channel}",
                 overwrite=overwrite,
                 append=True,
                 serialize_meta=True,
