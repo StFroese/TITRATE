@@ -75,6 +75,17 @@ class QMuTestStatistic(TestStatistic):
         stats = self.fit.stat_profile(self.dataset, self.poi_name, reoptimize=True)
         ts = stats["stat_scan"] - self.likelihood_minimum
 
+        # catch the case when the test statistic is negative
+        # happens when the best fit value of the POI is not the global minimum
+        # of the likelihood
+        if ts < 0:
+            # only allow if the distance to zero is smaller than 1e-3
+            if np.abs(ts) > 1e-3:
+                raise ValueError(
+                    "The test statistic is negative. This should not happen."
+                )
+            return np.array([0])
+
         return ts
 
     def check_for_pois(self):
@@ -189,6 +200,17 @@ class QTildeMuTestStatistic(TestStatistic):
         self.dataset.models.parameters[self.poi_name].scan_values = [poi_val]
         stats = self.fit.stat_profile(self.dataset, self.poi_name, reoptimize=True)
         ts = stats["stat_scan"] - self.likelihood_constant
+
+        # catch the case when the test statistic is negative
+        # happens when the best fit value of the POI is not the global minimum
+        # of the likelihood
+        if ts < 0:
+            # only allow if the distance to zero is smaller than 1e-3
+            if np.abs(ts) > 1e-3:
+                raise ValueError(
+                    "The test statistic is negative. This should not happen."
+                )
+            return np.array([0])
 
         return ts
 

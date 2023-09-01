@@ -63,13 +63,13 @@ class AsymptoticValidator:
 
         stat = self.statistic(self.asimov_dataset, self.poi_name)
         ks_diff = kstest(
-            self.toys_ts_diff[self.toys_ts_diff >= 0],
+            self.toys_ts_diff,
             lambda x: stat.asympotic_approximation_cdf(
                 poi_val=1, same=False, poi_true_val=0, ts_val=x
             ),
         )
         ks_same = kstest(
-            self.toys_ts_same[self.toys_ts_same >= 0],
+            self.toys_ts_same,
             lambda x: stat.asympotic_approximation_cdf(poi_val=1, ts_val=x),
         )
 
