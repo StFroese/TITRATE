@@ -160,6 +160,8 @@ class ULFactory:
         self.cl = cl
         self.kwargs = kwargs
         self.max_workers = max_workers
+        self.kwargs["cl"] = self.cl
+        self.kwargs["cl_type"] = self.cl_type
         self.uls = None
         self.expected_uls = None
 
