@@ -1,3 +1,5 @@
+from concurrent.futures import ProcessPoolExecutor
+
 import astropy.units as u
 import numpy as np
 from astropy.table import QTable
@@ -9,7 +11,6 @@ from gammapy.modeling.models import (
     SkyModel,
     TemplateSpatialModel,
 )
-from joblib import Parallel, delayed
 from scipy.interpolate import interp1d
 from scipy.optimize import brentq
 from scipy.stats import norm
@@ -146,6 +147,7 @@ class ULFactory:
         jfactor_map,
         cl_type="s",
         cl=0.95,
+        max_workers=None,
         **kwargs,
     ):
         self.measurement_dataset = measurement_dataset
@@ -157,6 +159,7 @@ class ULFactory:
         self.cl_type = cl_type
         self.cl = cl
         self.kwargs = kwargs
+        self.max_workers = max_workers
         self.uls = None
         self.expected_uls = None
 
@@ -184,17 +187,21 @@ class ULFactory:
         return ULCalculator(measurement_copy, **self.kwargs)
 
     def compute_uls(self):
-        uls = Parallel(n_jobs=-1, verbose=0)(
-            delayed(self.setup_calculator(models).compute)()
-            for models in self.setup_models()
-        )
+        with ProcessPoolExecutor(self.max_workers) as pool:
+            futures = [
+                pool.submit(self.setup_calculator(models).compute)
+                for models in self.setup_models()
+            ]
+            uls = [future.result() for future in futures]
         return uls
 
     def compute_expected(self):
-        expected_uls = Parallel(n_jobs=-1, verbose=0)(
-            delayed(self.setup_calculator(models).expected_uls)()
-            for models in self.setup_models()
-        )
+        with ProcessPoolExecutor(self.max_workers) as pool:
+            futures = [
+                pool.submit(self.setup_calculator(models).expected_uls)
+                for models in self.setup_models()
+            ]
+            expected_uls = [future.result() for future in futures]
         return expected_uls
 
     def compute(self):

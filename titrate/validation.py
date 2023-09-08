@@ -1,3 +1,4 @@
+from concurrent.futures import ProcessPoolExecutor
 from functools import lru_cache
 
 import h5py
@@ -6,7 +7,6 @@ from astropy.table import QTable
 from astropy.units import Quantity
 from gammapy.astro.darkmatter import DarkMatterAnnihilationSpectralModel
 from gammapy.modeling.models import SkyModel
-from joblib import Parallel, delayed
 
 from titrate.datasets import AsimovMapDataset
 from titrate.statistics import QMuTestStatistic, QTildeMuTestStatistic, kstest
@@ -24,6 +24,7 @@ class AsymptoticValidator:
         path=None,
         channel=None,
         mass=None,
+        max_workers=None,
     ):
         if statistic not in STATISTICS.keys():
             raise ValueError(
@@ -54,6 +55,7 @@ class AsymptoticValidator:
             raise ValueError(f"Mass must be one of {masses}")
 
         self.poi_name = poi_name
+        self.max_workers = max_workers
 
         self.toys_ts_diff = None
         self.toys_ts_same = None
@@ -89,16 +91,19 @@ class AsymptoticValidator:
 
     @lru_cache
     def toys_ts(self, n_toys, poi_val, poi_true_val):
-        toys_ts = Parallel(n_jobs=-1, verbose=0)(
-            delayed(calc_ts_toyMC)(
-                self.measurement_dataset,
-                self.statistic,
-                poi_val,
-                poi_true_val,
-                self.poi_name,
-            )
-            for _ in range(n_toys)
-        )
+        with ProcessPoolExecutor(self.max_workers) as pool:
+            futures = [
+                pool.submit(
+                    calc_ts_toyMC,
+                    self.measurement_dataset,
+                    self.statistic,
+                    poi_val,
+                    poi_true_val,
+                    self.poi_name,
+                )
+                for _ in range(n_toys)
+            ]
+            toys_ts = [future.result() for future in futures]
 
         # to ndarray
         toys_ts = np.array(toys_ts).ravel()
