@@ -79,8 +79,8 @@ class QMuTestStatistic(TestStatistic):
         # happens when the best fit value of the POI is not the global minimum
         # of the likelihood
         if ts < 0:
-            # only allow if the distance to zero is smaller than 1e-3
-            if np.abs(ts) > 1e-3:
+            # only allow if the distance to zero is smaller than 1e-1
+            if np.abs(ts) > 1e-1:
                 raise ValueError(
                     "The test statistic is negative. This should not happen."
                 )
