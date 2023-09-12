@@ -78,7 +78,11 @@ class ULCalculator:
             asimov_dataset.models.parameters[self.poi_name].value = poi_ul
             asimov_dataset.fake()
             statistic = self.statistic.__class__(asimov_dataset, poi_name=self.poi_name)
-            ts_val = self.statistic.evaluate(poi_ul)  # ts_val on measurement_dataset
+            ts_val, valid = self.statistic.evaluate(
+                poi_ul
+            )  # ts_val on measurement_dataset
+            if not valid:
+                ts_val = 0
 
             pval_sig_bkg = statistic.pvalue(poi_ul, ts_val=ts_val)
 
@@ -91,9 +95,11 @@ class ULCalculator:
                 no_signal_statistic = self.statistic.__class__(
                     no_signal_asimov_dataset, poi_name=self.poi_name
                 )
-                ts_val_no_signal = self.statistic.evaluate(
+                ts_val_no_signal, valid_no_signal = self.statistic.evaluate(
                     0
                 )  # ts_val on measurement_dataset with no signal
+                if not valid_no_signal:
+                    ts_val_no_signal = 0
 
                 pval_bkg = no_signal_statistic.pvalue(0, ts_val=ts_val_no_signal)
 
@@ -195,7 +201,7 @@ class ULFactory:
                 for models in self.setup_models()
             ]
             uls = [future.result() for future in futures]
-        return uls
+        self.uls = uls
 
     def compute_expected(self):
         with ProcessPoolExecutor(self.max_workers) as pool:
@@ -204,49 +210,60 @@ class ULFactory:
                 for models in self.setup_models()
             ]
             expected_uls = [future.result() for future in futures]
-        return expected_uls
+        self.expected_uls = expected_uls
 
     def compute(self):
-        self.uls = self.compute_uls()
-        self.expected_uls = self.compute_expected()
+        self.compute_uls()
+        self.compute_expected()
 
     def save_results(self, path, overwrite=False, **kwargs):
-        if self.uls is None or self.expected_uls is None:
+        if self.uls is None and self.expected_uls is None:
             raise ValueError("No results computed yet. Run compute() first.")
 
-        # prepare uls
         n_channels = len(self.channels)
-        uls = np.array(self.uls).reshape(n_channels, -1)
-        median_uls = np.array([ul["med"] for ul in self.expected_uls]).reshape(
-            n_channels, -1
-        )
-        one_sigma_minus_uls = np.array(
-            [ul["1sig"][0] for ul in self.expected_uls]
-        ).reshape(n_channels, -1)
-        one_sigma_plus_uls = np.array(
-            [ul["1sig"][1] for ul in self.expected_uls]
-        ).reshape(n_channels, -1)
-        two_sigma_minus_uls = np.array(
-            [ul["2sig"][0] for ul in self.expected_uls]
-        ).reshape(n_channels, -1)
-        two_sigma_plus_uls = np.array(
-            [ul["2sig"][1] for ul in self.expected_uls]
-        ).reshape(n_channels, -1)
+        # prepare uls
+        if self.uls is not None:
+            uls = np.array(self.uls).reshape(n_channels, -1)
+
+        # prepare expected uls
+        if self.expected_uls is not None:
+            median_uls = np.array([ul["med"] for ul in self.expected_uls]).reshape(
+                n_channels, -1
+            )
+            one_sigma_minus_uls = np.array(
+                [ul["1sig"][0] for ul in self.expected_uls]
+            ).reshape(n_channels, -1)
+            one_sigma_plus_uls = np.array(
+                [ul["1sig"][1] for ul in self.expected_uls]
+            ).reshape(n_channels, -1)
+            two_sigma_minus_uls = np.array(
+                [ul["2sig"][0] for ul in self.expected_uls]
+            ).reshape(n_channels, -1)
+            two_sigma_plus_uls = np.array(
+                [ul["2sig"][1] for ul in self.expected_uls]
+            ).reshape(n_channels, -1)
 
         for ch_idx, channel in enumerate(self.channels):
-            # to dict
             ul_dict = {
                 "mass": self.masses * u.TeV,
                 "channel": np.repeat(channel, len(self.masses)),
                 "cl_type": np.repeat(self.cl_type, len(self.masses)),
                 "cl": np.repeat(self.cl, len(self.masses)),
-                "ul": uls[ch_idx] * CS,
-                "median_ul": median_uls[ch_idx] * CS,
-                "1sigma_minus_ul": one_sigma_minus_uls[ch_idx] * CS,
-                "1sigma_plus_ul": one_sigma_plus_uls[ch_idx] * CS,
-                "2sigma_minus_ul": two_sigma_minus_uls[ch_idx] * CS,
-                "2sigma_plus_ul": two_sigma_plus_uls[ch_idx] * CS,
             }
+
+            if self.uls is not None:
+                ul_dict["ul"] = uls[ch_idx] * CS
+
+            if self.expected_uls is not None:
+                ul_dict_expected = {
+                    "median_ul": median_uls[ch_idx] * CS,
+                    "1sigma_minus_ul": one_sigma_minus_uls[ch_idx] * CS,
+                    "1sigma_plus_ul": one_sigma_plus_uls[ch_idx] * CS,
+                    "2sigma_minus_ul": two_sigma_minus_uls[ch_idx] * CS,
+                    "2sigma_plus_ul": two_sigma_plus_uls[ch_idx] * CS,
+                }
+                ul_dict = ul_dict | ul_dict_expected
+
             qtable = QTable(ul_dict)
             qtable.write(
                 path,

@@ -10,8 +10,12 @@ def test_QMuTestStatistic(measurement_dataset):
     qmu = QMuTestStatistic(measurement_dataset, poi_name="scale")
 
     assert qmu.check_for_pois() == ["scale", "norm"]
-    assert qmu.evaluate(-10) == np.array([0])
-    assert qmu.evaluate(10) != np.array([0])
+    evaluate, valid = qmu.evaluate(-10)
+    assert evaluate == np.array([0])
+    assert valid
+    evaluate, valid = qmu.evaluate(10)
+    assert evaluate != np.array([0])
+    assert valid
 
 
 def test_QTildeMuTestStatistic(measurement_dataset, nosignal_dataset):
@@ -20,13 +24,19 @@ def test_QTildeMuTestStatistic(measurement_dataset, nosignal_dataset):
     qtildemu = QTildeMuTestStatistic(measurement_dataset, poi_name="scale")
 
     assert qtildemu.check_for_pois() == ["scale", "norm"]
-    assert qtildemu.evaluate(-10) == np.array([0])
-    assert qtildemu.evaluate(10) != np.array([0])
+    evaluate, valid = qtildemu.evaluate(-10)
+    assert evaluate == np.array([0])
+    assert valid
+    evaluate, valid = qtildemu.evaluate(10)
+    assert evaluate != np.array([0])
+    assert valid
 
     # Force negative poi_best by using less counts
     qtildemu = QTildeMuTestStatistic(nosignal_dataset, poi_name="scale")
     assert qtildemu.poi_best < 0
-    assert qtildemu.evaluate(qtildemu.poi_best + 10) != np.array([0])
+    evaluate, valid = qtildemu.evaluate(qtildemu.poi_best + 10)
+    assert evaluate != np.array([0])
+    assert valid
 
 
 def test_pdf_approximations(asimov_dataset):

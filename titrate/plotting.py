@@ -12,7 +12,7 @@ STATISTICS = {"qmu": QMuTestStatistic, "qtildemu": QTildeMuTestStatistic}
 
 
 class UpperLimitPlotter:
-    def __init__(self, path, channel, ax=None):
+    def __init__(self, path, channel, uls=True, expected_uls=True, ax=None):
         self.path = path
         self.ax = ax if ax is not None else plt.gca()
 
@@ -27,13 +27,35 @@ class UpperLimitPlotter:
 
         self.channel = channel
 
+        if not uls and not expected_uls:
+            raise ValueError("Either uls or expected_uls must be True")
+
         masses = table["mass"]
-        uls = table["ul"]
-        median = table["median_ul"]
-        one_sigma_minus = table["1sigma_minus_ul"]
-        one_sigma_plus = table["1sigma_plus_ul"]
-        two_sigma_minus = table["2sigma_minus_ul"]
-        two_sigma_plus = table["2sigma_plus_ul"]
+        if uls:
+            try:
+                uls = table["ul"]
+            except KeyError:
+                raise KeyError("No upper limits in dataframe. Set uls=False")
+        else:
+            uls = None
+
+        if expected_uls:
+            try:
+                median = table["median_ul"]
+                one_sigma_minus = table["1sigma_minus_ul"]
+                one_sigma_plus = table["1sigma_plus_ul"]
+                two_sigma_minus = table["2sigma_minus_ul"]
+                two_sigma_plus = table["2sigma_plus_ul"]
+            except KeyError:
+                raise KeyError(
+                    "No expected upper limits in dataframe. Set expected_uls=False"
+                )
+        else:
+            median = None
+            one_sigma_minus = None
+            one_sigma_plus = None
+            two_sigma_minus = None
+            two_sigma_plus = None
 
         with viz.quantity_support():
             self.plot_channel(
@@ -72,30 +94,34 @@ class UpperLimitPlotter:
         two_sigma_minus,
         two_sigma_plus,
     ):
-        self.ax.plot(masses, uls, color="tab:orange", label="Upper Limits")
-        self.ax.plot(masses, median, color="tab:blue", label="Expected Upper Limits")
-        self.ax.fill_between(
-            masses,
-            median,
-            one_sigma_plus,
-            color="tab:blue",
-            alpha=0.75,
-            label=r"$1\sigma$-region",
-        )
-        self.ax.fill_between(
-            masses, median, one_sigma_minus, color="tab:blue", alpha=0.75
-        )
-        self.ax.fill_between(
-            masses,
-            one_sigma_plus,
-            two_sigma_plus,
-            color="tab:blue",
-            alpha=0.5,
-            label=r"$2\sigma$-region",
-        )
-        self.ax.fill_between(
-            masses, one_sigma_minus, two_sigma_minus, color="tab:blue", alpha=0.5
-        )
+        if uls is not None:
+            self.ax.plot(masses, uls, color="tab:orange", label="Upper Limits")
+        if median is not None:
+            self.ax.plot(
+                masses, median, color="tab:blue", label="Expected Upper Limits"
+            )
+            self.ax.fill_between(
+                masses,
+                median,
+                one_sigma_plus,
+                color="tab:blue",
+                alpha=0.75,
+                label=r"$1\sigma$-region",
+            )
+            self.ax.fill_between(
+                masses, median, one_sigma_minus, color="tab:blue", alpha=0.75
+            )
+            self.ax.fill_between(
+                masses,
+                one_sigma_plus,
+                two_sigma_plus,
+                color="tab:blue",
+                alpha=0.5,
+                label=r"$2\sigma$-region",
+            )
+            self.ax.fill_between(
+                masses, one_sigma_minus, two_sigma_minus, color="tab:blue", alpha=0.5
+            )
 
 
 class ValidationPlotter:
@@ -115,23 +141,36 @@ class ValidationPlotter:
         asimov_dataset = AsimovMapDataset.from_MapDataset(measurement_dataset)
 
         try:
-            table = QTable.read(
-                self.path, path=f"validation/{statistic}/{channel}/{mass}"
+            table_diff = QTable.read(
+                self.path, path=f"validation/{statistic}/diff/{channel}/{mass}"
+            )
+            table_same = QTable.read(
+                self.path, path=f"validation/{statistic}/same/{channel}/{mass}"
             )
         except OSError:
             if channel is None:
-                channels = list(h5py.File(self.path)["validation"][statistic].keys())
+                channels = list(
+                    h5py.File(self.path)["validation"][statistic]["diff"].keys()
+                )
                 channels = [ch for ch in channels if "meta" not in ch]
                 raise ValueError(f"Channel must be one of {channels}")
             if mass is None:
                 masses = list(
-                    h5py.File(self.path)["validation"][statistic][channel].keys()
+                    h5py.File(self.path)["validation"][statistic]["diff"][
+                        channel
+                    ].keys()
                 )
                 masses = [Quantity(m) for m in masses if "meta" not in m]
                 raise ValueError(f"Mass must be one of {masses}")
 
-        toys_ts_same = table["toys_ts_same"]
-        toys_ts_diff = table["toys_ts_diff"]
+        toys_ts_diff = table_diff["ts"]
+        toys_ts_diff_valid = table_diff["valid"]
+        toys_ts_same = table_same["ts"]
+        toys_ts_same_valid = table_same["valid"]
+
+        # apply masks
+        toys_ts_diff = toys_ts_diff[toys_ts_diff_valid]
+        toys_ts_same = toys_ts_same[toys_ts_same_valid]
 
         max_ts = max(toys_ts_diff.max(), toys_ts_same.max())
         bins = np.linspace(0, max_ts, 31)
