@@ -12,7 +12,7 @@ STATISTICS = {"qmu": QMuTestStatistic, "qtildemu": QTildeMuTestStatistic}
 
 
 class UpperLimitPlotter:
-    def __init__(self, path, channel, ax=None):
+    def __init__(self, path, channel, uls=True, expected_uls=True, ax=None):
         self.path = path
         self.ax = ax if ax is not None else plt.gca()
 
@@ -27,13 +27,35 @@ class UpperLimitPlotter:
 
         self.channel = channel
 
+        if not uls and not expected_uls:
+            raise ValueError("Either uls or expected_uls must be True")
+
         masses = table["mass"]
-        uls = table["ul"]
-        median = table["median_ul"]
-        one_sigma_minus = table["1sigma_minus_ul"]
-        one_sigma_plus = table["1sigma_plus_ul"]
-        two_sigma_minus = table["2sigma_minus_ul"]
-        two_sigma_plus = table["2sigma_plus_ul"]
+        if uls:
+            try:
+                uls = table["ul"]
+            except KeyError:
+                raise KeyError("No upper limits in dataframe. Set uls=False")
+        else:
+            uls = None
+
+        if expected_uls:
+            try:
+                median = table["median_ul"]
+                one_sigma_minus = table["1sigma_minus_ul"]
+                one_sigma_plus = table["1sigma_plus_ul"]
+                two_sigma_minus = table["2sigma_minus_ul"]
+                two_sigma_plus = table["2sigma_plus_ul"]
+            except KeyError:
+                raise KeyError(
+                    "No expected upper limits in dataframe. Set expected_uls=False"
+                )
+        else:
+            median = None
+            one_sigma_minus = None
+            one_sigma_plus = None
+            two_sigma_minus = None
+            two_sigma_plus = None
 
         with viz.quantity_support():
             self.plot_channel(
@@ -72,30 +94,34 @@ class UpperLimitPlotter:
         two_sigma_minus,
         two_sigma_plus,
     ):
-        self.ax.plot(masses, uls, color="tab:orange", label="Upper Limits")
-        self.ax.plot(masses, median, color="tab:blue", label="Expected Upper Limits")
-        self.ax.fill_between(
-            masses,
-            median,
-            one_sigma_plus,
-            color="tab:blue",
-            alpha=0.75,
-            label=r"$1\sigma$-region",
-        )
-        self.ax.fill_between(
-            masses, median, one_sigma_minus, color="tab:blue", alpha=0.75
-        )
-        self.ax.fill_between(
-            masses,
-            one_sigma_plus,
-            two_sigma_plus,
-            color="tab:blue",
-            alpha=0.5,
-            label=r"$2\sigma$-region",
-        )
-        self.ax.fill_between(
-            masses, one_sigma_minus, two_sigma_minus, color="tab:blue", alpha=0.5
-        )
+        if uls is not None:
+            self.ax.plot(masses, uls, color="tab:orange", label="Upper Limits")
+        if median is not None:
+            self.ax.plot(
+                masses, median, color="tab:blue", label="Expected Upper Limits"
+            )
+            self.ax.fill_between(
+                masses,
+                median,
+                one_sigma_plus,
+                color="tab:blue",
+                alpha=0.75,
+                label=r"$1\sigma$-region",
+            )
+            self.ax.fill_between(
+                masses, median, one_sigma_minus, color="tab:blue", alpha=0.75
+            )
+            self.ax.fill_between(
+                masses,
+                one_sigma_plus,
+                two_sigma_plus,
+                color="tab:blue",
+                alpha=0.5,
+                label=r"$2\sigma$-region",
+            )
+            self.ax.fill_between(
+                masses, one_sigma_minus, two_sigma_minus, color="tab:blue", alpha=0.5
+            )
 
 
 class ValidationPlotter:
