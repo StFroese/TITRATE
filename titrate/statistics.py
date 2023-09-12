@@ -66,10 +66,21 @@ class QMuTestStatistic(TestStatistic):
         """
         Computes the test statistic for a given dataset
         and parameter of interest (POI).
+
+        Parameters
+        ----------
+        poi_val : float
+
+        Returns
+        -------
+        ts : float
+        global_fit_valid: bool
+            True if the global fit is valid, False otherwise.
         """
 
+        global_fit_valid = True
         if self.poi_best > poi_val:
-            return np.array([0])
+            return np.array([0]), global_fit_valid
 
         self.dataset.models.parameters[self.poi_name].scan_values = [poi_val]
         stats = self.fit.stat_profile(self.dataset, self.poi_name, reoptimize=True)
@@ -79,14 +90,9 @@ class QMuTestStatistic(TestStatistic):
         # happens when the best fit value of the POI is not the global minimum
         # of the likelihood
         if ts < 0:
-            # only allow if the distance to zero is smaller than 1e-1
-            if np.abs(ts) > 1e-1:
-                raise ValueError(
-                    "The test statistic is negative. This should not happen."
-                )
-            return np.array([0])
+            global_fit_valid = False
 
-        return ts
+        return ts, global_fit_valid
 
     def check_for_pois(self):
         """POI must be a norm parameter by definition since
@@ -145,7 +151,8 @@ class QMuTestStatistic(TestStatistic):
 
     def pvalue(self, poi_val, same=True, poi_true_val=None, ts_val=None):
         if ts_val is None:
-            ts_val = self.evaluate(poi_val)
+            ts_val, valid = self.evaluate(poi_val)
+            ts_val = ts_val if valid else 0
         if same:
             return 1 - self.asympotic_approximation_cdf(ts_val, poi_val)
         return 1 - self.asympotic_approximation_cdf(
@@ -154,7 +161,8 @@ class QMuTestStatistic(TestStatistic):
 
     def significance(self, poi_val, same=True, poi_true_val=None, ts_val=None):
         if ts_val is None:
-            ts_val = self.evaluate(poi_val)
+            ts_val, valid = self.evaluate(poi_val)
+            ts_val = ts_val if valid else 0
         if same:
             return np.sqrt(ts_val)
 
@@ -192,10 +200,20 @@ class QTildeMuTestStatistic(TestStatistic):
         """
         Computes the test statistic for a given dataset
         and parameter of interest (POI).
-        """
 
+        Parameters
+        ----------
+        poi_val : float
+
+        Returns
+        -------
+        ts : float
+        global_fit_valid: bool
+            True if the global fit is valid, False otherwise.
+        """
+        global_fit_valid = True
         if self.poi_best > poi_val:
-            return np.array([0])
+            return np.array([0]), global_fit_valid
 
         self.dataset.models.parameters[self.poi_name].scan_values = [poi_val]
         stats = self.fit.stat_profile(self.dataset, self.poi_name, reoptimize=True)
@@ -205,14 +223,9 @@ class QTildeMuTestStatistic(TestStatistic):
         # happens when the best fit value of the POI is not the global minimum
         # of the likelihood
         if ts < 0:
-            # only allow if the distance to zero is smaller than 1e-3
-            if np.abs(ts) > 1e-3:
-                raise ValueError(
-                    "The test statistic is negative. This should not happen."
-                )
-            return np.array([0])
+            global_fit_valid = False
 
-        return ts
+        return ts, global_fit_valid
 
     def check_for_pois(self):
         """POI must be a norm parameter by definition since
@@ -299,7 +312,8 @@ class QTildeMuTestStatistic(TestStatistic):
 
     def pvalue(self, poi_val, same=True, poi_true_val=None, ts_val=None):
         if ts_val is None:
-            ts_val = self.evaluate(poi_val)
+            ts_val, valid = self.evaluate(poi_val)
+            ts_val = ts_val if valid else 0
         if same:
             return 1 - self.asympotic_approximation_cdf(ts_val, poi_val)
         return 1 - self.asympotic_approximation_cdf(
@@ -308,7 +322,8 @@ class QTildeMuTestStatistic(TestStatistic):
 
     def significance(self, poi_val, same=True, poi_true_val=None, ts_val=None):
         if ts_val is None:
-            ts_val = self.evaluate(poi_val)
+            ts_val, valid = self.evaluate(poi_val)
+            ts_val = ts_val if valid else 0
         if same:
             sigma = self.sigma()
             if ts_val > poi_val**2 / sigma**2:

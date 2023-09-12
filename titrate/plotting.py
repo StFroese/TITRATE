@@ -115,23 +115,36 @@ class ValidationPlotter:
         asimov_dataset = AsimovMapDataset.from_MapDataset(measurement_dataset)
 
         try:
-            table = QTable.read(
-                self.path, path=f"validation/{statistic}/{channel}/{mass}"
+            table_diff = QTable.read(
+                self.path, path=f"validation/{statistic}/diff/{channel}/{mass}"
+            )
+            table_same = QTable.read(
+                self.path, path=f"validation/{statistic}/same/{channel}/{mass}"
             )
         except OSError:
             if channel is None:
-                channels = list(h5py.File(self.path)["validation"][statistic].keys())
+                channels = list(
+                    h5py.File(self.path)["validation"][statistic]["diff"].keys()
+                )
                 channels = [ch for ch in channels if "meta" not in ch]
                 raise ValueError(f"Channel must be one of {channels}")
             if mass is None:
                 masses = list(
-                    h5py.File(self.path)["validation"][statistic][channel].keys()
+                    h5py.File(self.path)["validation"][statistic]["diff"][
+                        channel
+                    ].keys()
                 )
                 masses = [Quantity(m) for m in masses if "meta" not in m]
                 raise ValueError(f"Mass must be one of {masses}")
 
-        toys_ts_same = table["toys_ts_same"]
-        toys_ts_diff = table["toys_ts_diff"]
+        toys_ts_diff = table_diff["ts"]
+        toys_ts_diff_valid = table_diff["valid"]
+        toys_ts_same = table_same["ts"]
+        toys_ts_same_valid = table_same["valid"]
+
+        # apply masks
+        toys_ts_diff = toys_ts_diff[toys_ts_diff_valid]
+        toys_ts_same = toys_ts_same[toys_ts_same_valid]
 
         max_ts = max(toys_ts_diff.max(), toys_ts_same.max())
         bins = np.linspace(0, max_ts, 31)

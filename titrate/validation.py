@@ -41,13 +41,13 @@ class AsymptoticValidator:
         self.mass = mass
         if self.channel is None and self.path is not None:
             channels = list(
-                h5py.File(self.path)["validation"][self.statistic_key].keys()
+                h5py.File(self.path)["validation"][self.statistic_key]["diff"].keys()
             )
             channels = [ch for ch in channels if "meta" not in ch]
             raise ValueError(f"Channel must be one of {channels}")
         if self.mass is None and self.path is not None:
             masses = list(
-                h5py.File(self.path)["validation"][self.statistic_key][
+                h5py.File(self.path)["validation"][self.statistic_key]["diff"][
                     self.channel
                 ].keys()
             )
@@ -59,19 +59,21 @@ class AsymptoticValidator:
 
         self.toys_ts_diff = None
         self.toys_ts_same = None
+        self.toys_ts_diff_valid = None
+        self.toys_ts_same_valid = None
 
     def validate(self, n_toys=1000):
         self.generate_datasets(n_toys)
 
         stat = self.statistic(self.asimov_dataset, self.poi_name)
         ks_diff = kstest(
-            self.toys_ts_diff,
+            self.toys_ts_diff[self.toys_ts_diff_valid],
             lambda x: stat.asympotic_approximation_cdf(
                 poi_val=1, same=False, poi_true_val=0, ts_val=x
             ),
         )
         ks_same = kstest(
-            self.toys_ts_same,
+            self.toys_ts_same[self.toys_ts_same_valid],
             lambda x: stat.asympotic_approximation_cdf(poi_val=1, ts_val=x),
         )
 
@@ -81,13 +83,20 @@ class AsymptoticValidator:
 
     def generate_datasets(self, n_toys):
         if self.path is None:
-            toys_ts_diff = self.toys_ts(n_toys, 1, 0)
-            toys_ts_same = self.toys_ts(n_toys, 1, 1)
+            toys_ts_diff, toys_ts_diff_valid = self.toys_ts(n_toys, 1, 0)
+            toys_ts_same, toys_ts_same_valid = self.toys_ts(n_toys, 1, 1)
         else:
-            toys_ts_same, toys_ts_diff = self.open_toys()
+            (
+                toys_ts_diff,
+                toys_ts_diff_valid,
+                toys_ts_same,
+                toys_ts_same_valid,
+            ) = self.open_toys()
 
         self.toys_ts_diff = toys_ts_diff
         self.toys_ts_same = toys_ts_same
+        self.toys_ts_diff_valid = toys_ts_diff_valid
+        self.toys_ts_same_valid = toys_ts_same_valid
 
     @lru_cache
     def toys_ts(self, n_toys, poi_val, poi_true_val):
@@ -103,23 +112,31 @@ class AsymptoticValidator:
                 )
                 for _ in range(n_toys)
             ]
-            toys_ts = [future.result() for future in futures]
+            toys_ts = [future.result()[0] for future in futures]
+            toys_valid = [future.result()[1] for future in futures]
 
         # to ndarray
         toys_ts = np.array(toys_ts).ravel()
+        toys_valid = np.array(toys_valid).ravel()
 
-        return toys_ts
+        return toys_ts, toys_valid
 
     def open_toys(self):
-        toys = QTable.read(
+        toys_diff = QTable.read(
             self.path,
-            path=f"validation/{self.statistic_key}/{self.channel}/{self.mass}",
+            path=f"validation/{self.statistic_key}/diff/{self.channel}/{self.mass}",
+        )
+        toys_same = QTable.read(
+            self.path,
+            path=f"validation/{self.statistic_key}/same/{self.channel}/{self.mass}",
         )
 
-        toys_ts_diff = toys["toys_ts_diff"]
-        toys_ts_same = toys["toys_ts_same"]
+        toys_ts_diff = toys_diff["ts"]
+        toys_ts_diff_valid = toys_diff["valid"]
+        toys_ts_same = toys_same["ts"]
+        toys_ts_same_valid = toys_same["valid"]
 
-        return toys_ts_same, toys_ts_diff
+        return toys_ts_diff, toys_ts_diff_valid, toys_ts_same, toys_ts_same_valid
 
     def save_toys(self, path, overwrite=False, **kwargs):
         if self.toys_ts_diff is None or self.toys_ts_same is None:
@@ -143,16 +160,31 @@ class AsymptoticValidator:
             )
 
         # save toys
-        toys_dict = {
-            "toys_ts_diff": self.toys_ts_diff,
-            "toys_ts_same": self.toys_ts_same,
+        toys_dict_diff = {
+            "ts": self.toys_ts_diff,
+            "valid": self.toys_ts_diff_valid,
+        }
+        toys_dict_same = {
+            "ts": self.toys_ts_same,
+            "valid": self.toys_ts_same_valid,
         }
 
-        qtable = QTable(toys_dict)
+        qtable = QTable(toys_dict_diff)
         qtable.write(
             path,
             format="hdf5",
-            path=f"validation/{self.statistic_key}/{channel}/{mass}",
+            path=f"validation/{self.statistic_key}/diff/{channel}/{mass}",
+            overwrite=overwrite,
+            append=True,
+            serialize_meta=True,
+            **kwargs,
+        )
+
+        qtable = QTable(toys_dict_same)
+        qtable.write(
+            path,
+            format="hdf5",
+            path=f"validation/{self.statistic_key}/same/{channel}/{mass}",
             overwrite=overwrite,
             append=True,
             serialize_meta=True,

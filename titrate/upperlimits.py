@@ -78,7 +78,11 @@ class ULCalculator:
             asimov_dataset.models.parameters[self.poi_name].value = poi_ul
             asimov_dataset.fake()
             statistic = self.statistic.__class__(asimov_dataset, poi_name=self.poi_name)
-            ts_val = self.statistic.evaluate(poi_ul)  # ts_val on measurement_dataset
+            ts_val, valid = self.statistic.evaluate(
+                poi_ul
+            )  # ts_val on measurement_dataset
+            if not valid:
+                ts_val = 0
 
             pval_sig_bkg = statistic.pvalue(poi_ul, ts_val=ts_val)
 
@@ -91,9 +95,11 @@ class ULCalculator:
                 no_signal_statistic = self.statistic.__class__(
                     no_signal_asimov_dataset, poi_name=self.poi_name
                 )
-                ts_val_no_signal = self.statistic.evaluate(
+                ts_val_no_signal, valid_no_signal = self.statistic.evaluate(
                     0
                 )  # ts_val on measurement_dataset with no signal
+                if not valid_no_signal:
+                    ts_val_no_signal = 0
 
                 pval_bkg = no_signal_statistic.pvalue(0, ts_val=ts_val_no_signal)
 
