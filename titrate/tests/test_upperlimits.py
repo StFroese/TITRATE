@@ -36,7 +36,7 @@ def upperlimits_file(jfact_map, measurement_dataset, tmp_path_factory):
     ulfactory.compute()
 
     data = tmp_path_factory.mktemp("data")
-    ulfactory.save_results(f"{data}/ul.hdf5")
+    ulfactory.write(f"{data}/ul.hdf5")
 
     return f"{data}/ul.hdf5"
 

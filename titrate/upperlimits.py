@@ -216,7 +216,7 @@ class ULFactory:
         self.compute_uls()
         self.compute_expected()
 
-    def save_results(self, path, overwrite=False, **kwargs):
+    def write(self, path, overwrite=False, **kwargs):
         if self.uls is None and self.expected_uls is None:
             raise ValueError("No results computed yet. Run compute() first.")
 

@@ -23,7 +23,7 @@ def validation_file(measurement_dataset, tmp_path_factory):
 
     assert str(excinfo.value) == "Statistic must be one of ['qmu', 'qtildemu']"
 
-    validator.save_toys(f"{data}/val.h5")
+    validator.write(f"{data}/val.h5")
 
     validator_tilde = AsymptoticValidator(measurement_dataset, "qtildemu", "scale")
     result_tilde = validator_tilde.validate(n_toys=10)
@@ -34,7 +34,7 @@ def validation_file(measurement_dataset, tmp_path_factory):
     assert result_tilde["pvalue_same"] != np.nan
     assert isinstance(result_tilde["valid"], np.bool_)
 
-    validator_tilde.save_toys(f"{data}/val.h5")
+    validator_tilde.write(f"{data}/val.h5")
 
     return f"{data}/val.h5"
 
