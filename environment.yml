@@ -13,3 +13,4 @@ dependencies:
   - ipython
   - black
   - jupyter 
+  - pip
