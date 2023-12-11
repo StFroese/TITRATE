@@ -79,56 +79,6 @@ class AsymptoticValidator:
 
         valid = ks_diff > 0.05 and ks_same > 0.05
 
-        import matplotlib.pyplot as plt
-        from scipy.stats import chi2
-        from scipy.stats import kstest as ks
-
-        plt.plot(
-            np.linspace(0, 10, 1000),
-            stat.asympotic_approximation_cdf(
-                poi_val=1, same=False, poi_true_val=0, ts_val=np.linspace(0, 10, 1000)
-            ),
-        )
-        plt.plot(
-            np.linspace(0, 10, 1000),
-            stat.asympotic_approximation_pdf(
-                poi_val=1, same=False, poi_true_val=0, ts_val=np.linspace(0, 10, 1000)
-            ),
-        )
-        plt.plot(np.linspace(0, 5, 1000), chi2(df=1).pdf(np.linspace(0, 5, 1000)))
-        plt.plot(np.linspace(0, 5, 1000), chi2(df=1).cdf(np.linspace(0, 5, 1000)))
-        plt.yscale("log")
-        plt.show()
-        print(
-            stat.asympotic_approximation_pdf(
-                poi_val=1, same=False, poi_true_val=0, ts_val=1
-            )
-        )
-        print(
-            "zero",
-            stat.asympotic_approximation_cdf(
-                poi_val=1, same=False, poi_true_val=0, ts_val=0
-            ),
-        )
-        print(
-            ks(
-                self.toys_ts_diff[self.toys_ts_diff_valid],
-                lambda x: stat.asympotic_approximation_cdf(
-                    poi_val=1, same=False, poi_true_val=0, ts_val=x
-                ),
-            )
-        )
-        print(
-            ks(
-                self.toys_ts_diff[self.toys_ts_diff_valid][
-                    self.toys_ts_diff[self.toys_ts_diff_valid] != 0
-                ],
-                lambda x: stat.asympotic_approximation_cdf(
-                    poi_val=1, same=False, poi_true_val=0, ts_val=x
-                ),
-            )
-        )
-        return self.toys_ts_diff[self.toys_ts_diff_valid]
         return {"pvalue_diff": ks_diff, "pvalue_same": ks_same, "valid": valid}
 
     def generate_datasets(self, n_toys):
