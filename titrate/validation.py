@@ -138,7 +138,7 @@ class AsymptoticValidator:
 
         return toys_ts_diff, toys_ts_diff_valid, toys_ts_same, toys_ts_same_valid
 
-    def save_toys(self, path, overwrite=False, **kwargs):
+    def write(self, path, overwrite=False, **kwargs):
         if self.toys_ts_diff is None or self.toys_ts_same is None:
             raise ValueError("Toys not generated yet. Run validate() first.")
 
