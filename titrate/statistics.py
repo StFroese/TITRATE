@@ -2,7 +2,7 @@ import abc
 
 import numpy as np
 from gammapy.modeling import Fit
-from scipy.stats import kstwo, norm
+from scipy.stats import chi2, kstwo, ncx2, norm
 
 from titrate.datasets import AsimovMapDataset
 
@@ -116,24 +116,14 @@ class QMuTestStatistic(TestStatistic):
         self, ts_val, poi_val, same=True, poi_true_val=None
     ):
         if same:
-            return (
-                1
-                / (2 * np.sqrt(2 * np.pi * ts_val))
-                * np.exp(-0.5 * (np.sqrt(ts_val)) ** 2)
-            )
+            return 0.5 * chi2.pdf(ts_val, df=1)
 
         if not isinstance(self.dataset, AsimovMapDataset):
             raise AsimovApproximationError(
                 "`dataset` must be an `AsimovMapDataset` in order to use the"
                 " `asympotic_approximation`"
             )
-        return (
-            1
-            / (2 * np.sqrt(2 * np.pi * ts_val))
-            * np.exp(
-                -0.5 * (np.sqrt(ts_val) - (poi_val - poi_true_val) / self.sigma()) ** 2
-            )
-        )
+        return ncx2.pdf(ts_val, df=1, nc=((poi_val - poi_true_val) / self.sigma()) ** 2)
 
     def asympotic_approximation_cdf(
         self, ts_val, poi_val, same=True, poi_true_val=None
@@ -266,7 +256,7 @@ class QTildeMuTestStatistic(TestStatistic):
                     * (ts_val + poi_val**2 / sigma**2) ** 2
                     / (2 * poi_val / sigma) ** 2
                 ),
-                1 / (2 * np.sqrt(2 * np.pi * ts_val)) * np.exp(-0.5 * ts_val),
+                0.5 * chi2.pdf(ts_val, df=1),
             )
 
         return np.where(
@@ -279,9 +269,8 @@ class QTildeMuTestStatistic(TestStatistic):
                 ** 2
                 / (2 * poi_val / sigma) ** 2
             ),
-            1
-            / (2 * np.sqrt(2 * np.pi * ts_val))
-            * np.exp(-0.5 * (np.sqrt(ts_val) - (poi_val - poi_true_val) / sigma) ** 2),
+            0.5
+            * ncx2.pdf(ts_val, df=1, nc=((poi_val - poi_true_val) / self.sigma()) ** 2),
         )
 
     def asympotic_approximation_cdf(
