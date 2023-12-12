@@ -12,7 +12,7 @@ STATISTICS = {"qmu": QMuTestStatistic, "qtildemu": QTildeMuTestStatistic}
 
 
 class UpperLimitPlotter:
-    def __init__(self, path, channel, uls=True, expected_uls=True, ax=None):
+    def __init__(self, path, channel, show_uls=True, show_expected_uls=True, ax=None):
         self.path = path
         self.ax = ax if ax is not None else plt.gca()
 
@@ -27,11 +27,11 @@ class UpperLimitPlotter:
 
         self.channel = channel
 
-        if not uls and not expected_uls:
+        if not show_uls and not show_expected_uls:
             raise ValueError("Either uls or expected_uls must be True")
 
         masses = table["mass"]
-        if uls:
+        if show_uls:
             try:
                 uls = table["ul"]
             except KeyError:
@@ -39,7 +39,7 @@ class UpperLimitPlotter:
         else:
             uls = None
 
-        if expected_uls:
+        if show_expected_uls:
             try:
                 median = table["median_ul"]
                 one_sigma_minus = table["1sigma_minus_ul"]
@@ -76,8 +76,9 @@ class UpperLimitPlotter:
         ][0]
         cl = unique(table[table["channel"] == self.channel], keys="cl")["cl"][0]
         self.ax.set_xlabel(f"m / {masses.unit:latex}")
+        ul_unit = uls.unit if show_uls else median.unit
         self.ax.set_ylabel(
-            rf"$CL_{cl_type}^{{{cl}}}$ upper limit on $< \sigma v>$ / {uls.unit:latex}"
+            rf"$CL_{cl_type}^{{{cl}}}$ upper limit on $< \sigma v>$ / {ul_unit:latex}"
         )
 
         self.ax.set_title(f"Annihilation Upper Limits for channel {self.channel}")
