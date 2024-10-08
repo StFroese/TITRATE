@@ -58,7 +58,7 @@ class QMuTestStatistic(TestStatistic):
             )
 
         self.fit = Fit()
-        self.fit_result = self.fit.run(datasets=[self.dataset])
+        self.fit_result = self.fit.run(datasets=self.dataset)
         self.poi_best = self.fit_result.parameters[self.poi_name].value
         self.likelihood_minimum = self.dataset.stat_sum()
 

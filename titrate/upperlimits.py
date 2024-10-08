@@ -4,6 +4,7 @@ import astropy.units as u
 import numpy as np
 from astropy.table import QTable
 from gammapy.astro.darkmatter import DarkMatterAnnihilationSpectralModel
+from gammapy.datasets import Datasets
 from gammapy.modeling import Fit
 from gammapy.modeling.models import (
     FoVBackgroundModel,
@@ -15,7 +16,7 @@ from scipy.interpolate import interp1d
 from scipy.optimize import brentq
 from scipy.stats import norm
 
-from titrate.datasets import AsimovMapDataset
+from titrate.datasets import AsimovMapDataset, AsimovSpectralDataset
 from titrate.statistics import QMuTestStatistic, QTildeMuTestStatistic
 from titrate.utils import copy_models_to_dataset
 
@@ -67,6 +68,12 @@ class ULCalculator:
             ]
         ).ravel()
         interpolation = interp1d(interp_ul_points, interp_pvalues - 1 + self.cl)
+        if interpolation(interp_ul_points[0]) < 0:
+            print(
+                interpolation(interp_ul_points[0]),
+                interpolation(interp_ul_points[-1]),
+                self.measurement_dataset,
+            )
         poi_ul = brentq(interpolation, poi_ul / 2, poi_ul)
 
         return poi_ul
@@ -113,12 +120,18 @@ class ULCalculator:
 
     def expected_uls(self):
         # Create asimov dataset
-        asimov_dataset = AsimovMapDataset.from_MapDataset(self.measurement_dataset)
+        # asimov_dataset = AsimovMapDataset.from_MapDataset(self.measurement_dataset)
+        asimov_dataset = []
+        for dataset in self.measurement_dataset:
+            asimov_dataset.append(AsimovSpectralDataset.from_SpectralDataset(dataset))
+        asimov_dataset = Datasets(asimov_dataset)
+        # asimov_dataset =
+        # AsimovSpectralDataset.from_SpectralDatasets(self.measurement_dataset)
         asimov_dataset.models.parameters[self.poi_name].value = 0
-        asimov_dataset.fake()
+        # asimov_dataset.fake()
 
         fit = Fit()
-        fit_result = fit.run(datasets=[asimov_dataset])
+        fit_result = fit.run(datasets=asimov_dataset)
 
         sigma = np.sqrt(fit_result.covariance_result.matrix[0, 0])
         med_ul = self.compute_band(sigma, 0, self.cl_type)
@@ -150,7 +163,8 @@ class ULFactory:
         mass_min,
         mass_max,
         n_steps,
-        jfactor_map,
+        jfactor,
+        analysis="3d",
         cl_type="s",
         cl=0.95,
         max_workers=None,
@@ -161,7 +175,8 @@ class ULFactory:
         self.masses = np.geomspace(
             mass_min.to_value("TeV"), mass_max.to_value("TeV"), n_steps
         )
-        self.jfactor_map = jfactor_map
+        self.jfactor = jfactor
+        self.analysis = analysis
         self.cl_type = cl_type
         self.cl = cl
         self.kwargs = kwargs
@@ -173,19 +188,34 @@ class ULFactory:
 
     def setup_models(self):
         models = []
-        spatial_model = TemplateSpatialModel(self.jfactor_map, normalize=False)
-        bkg_model = FoVBackgroundModel(dataset_name="foo")
-        for channel in self.channels:
-            for mass in self.masses:
-                spectral_model = DarkMatterAnnihilationSpectralModel(
-                    mass=mass * u.TeV, channel=channel
-                )
-                sky_model = SkyModel(
-                    spatial_model=spatial_model,
-                    spectral_model=spectral_model,
-                    name=f"mass_{mass:.2f}TeV_channel_{channel}",
-                )
-                models.append(Models([sky_model, bkg_model]))
+        if self.analysis == "3d":
+            spatial_model = TemplateSpatialModel(self.jfactor, normalize=False)
+
+            bkg_model = FoVBackgroundModel(dataset_name="foo")
+            for channel in self.channels:
+                for mass in self.masses:
+                    spectral_model = DarkMatterAnnihilationSpectralModel(
+                        mass=mass * u.TeV, channel=channel
+                    )
+                    sky_model = SkyModel(
+                        spatial_model=spatial_model,
+                        spectral_model=spectral_model,
+                        name=f"mass_{mass:.2f}TeV_channel_{channel}",
+                    )
+                    models.append(Models([sky_model, bkg_model]))
+
+        elif self.analysis == "1d":
+            bkg_model = FoVBackgroundModel(dataset_name="foo")
+            for channel in self.channels:
+                for mass in self.masses:
+                    spectral_model = DarkMatterAnnihilationSpectralModel(
+                        mass=mass * u.TeV, channel=channel, jfactor=self.jfactor
+                    )
+                    sky_model = SkyModel(
+                        spectral_model=spectral_model,
+                        name=f"mass_{mass:.2f}TeV_channel_{channel}",
+                    )
+                    models.append(Models([sky_model, bkg_model]))
 
         return models
 
