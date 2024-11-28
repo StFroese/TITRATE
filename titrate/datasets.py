@@ -15,6 +15,14 @@ class AsimovMapDataset(MapDataset):
         This method generates Asimov like counts,
         i.e. the counts are not drawn from a poisson distribution.
         """
+        npred_background = self.npred_background()
+        # # data = np.nan_to_num(
+        # #     npred_background.data, copy=True, nan=0.0, posinf=0.0, neginf=0.0
+        # # )
+        # # npred_background.data = data
+        self.background = npred_background.copy()
+        self._background_parameters_changed = False
+
         npred = self.npred()
         data = np.nan_to_num(npred.data, copy=True, nan=0.0, posinf=0.0, neginf=0.0)
         npred.data = data
@@ -31,12 +39,15 @@ class AsimovMapDataset(MapDataset):
             deleted_entries[key] = dataset_dict.pop(key)
 
         asimov_dataset = AsimovMapDataset(**dataset_dict)
-        # copy IRFs separately
-        asimov_dataset._background_parameters_cached = deleted_entries[
-            "_background_parameters_cached"
-        ]
+        for key in deleted_entries.keys():
+            if key == "_name":
+                continue
+            setattr(asimov_dataset, key, deleted_entries[key])
 
-        copy_models_to_dataset(dataset.models, asimov_dataset)
+        # copy_models_to_dataset(dataset.models, asimov_dataset)
+        models_copy = dataset.models.copy()
+        models_copy = models_copy.reassign(dataset.name, asimov_dataset.name)
+        asimov_dataset.models = models_copy
         asimov_dataset.fake()
 
         return asimov_dataset

@@ -231,5 +231,6 @@ class ValidationPlotter:
             linspace,
             statistic.asympotic_approximation_pdf(poi_val=1, ts_val=linspace),
             color="tab:orange",
+            alpha=0.3,
             label=rf"$f({statistic_math_name}\vert\mu^\prime)$, asympotic",
         )

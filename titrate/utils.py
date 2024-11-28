@@ -22,7 +22,10 @@ def calc_ts_toyMC(dataset, test_statistic, poi_val, poi_true_val, poi_name):
 def copy_dataset_with_models(dataset):
     """Copies a dataset inlcuding the models."""
     dataset_copy = dataset.copy()
-    copy_models_to_dataset(dataset.models, dataset_copy)
+    models_copy = dataset.models.copy()
+    models_copy = models_copy.reassign(dataset.name, dataset_copy.name)
+    dataset_copy.models = models_copy
+    # copy_models_to_dataset(dataset.models, dataset_copy)
 
     return dataset_copy
 
