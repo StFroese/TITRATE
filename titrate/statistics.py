@@ -4,8 +4,6 @@ import numpy as np
 from gammapy.modeling import Fit
 from scipy.stats import kstwo, norm
 
-from titrate.datasets import AsimovMapDataset
-
 
 class POIError(IndexError):
     """Parameter of interest is not defined in model"""
@@ -105,11 +103,11 @@ class QMuTestStatistic(TestStatistic):
         return pois
 
     def sigma(self):
-        if not isinstance(self.dataset, AsimovMapDataset):
-            raise AsimovApproximationError(
-                "`dataset` must be an `AsimovMapDataset` in order to calculate"
-                " `sigma`"
-            )
+        # if not isinstance(self.dataset, AsimovMapDataset):
+        #     raise AsimovApproximationError(
+        #         "`dataset` must be an `AsimovMapDataset` in order to calculate"
+        #         " `sigma`"
+        #     )
         return np.sqrt(self.fit_result.covariance_result.matrix[0, 0])
 
     def asympotic_approximation_pdf(
@@ -122,11 +120,11 @@ class QMuTestStatistic(TestStatistic):
                 * np.exp(-0.5 * (np.sqrt(ts_val)) ** 2)
             )
 
-        if not isinstance(self.dataset, AsimovMapDataset):
-            raise AsimovApproximationError(
-                "`dataset` must be an `AsimovMapDataset` in order to use the"
-                " `asympotic_approximation`"
-            )
+        # if not isinstance(self.dataset, AsimovMapDataset):
+        #     raise AsimovApproximationError(
+        #         "`dataset` must be an `AsimovMapDataset` in order to use the"
+        #         " `asympotic_approximation`"
+        #     )
         return (
             1
             / (2 * np.sqrt(2 * np.pi * ts_val))
@@ -141,11 +139,11 @@ class QMuTestStatistic(TestStatistic):
         if same:
             return norm.cdf(np.sqrt(ts_val))
 
-        if not isinstance(self.dataset, AsimovMapDataset):
-            raise AsimovApproximationError(
-                "`dataset` must be an `AsimovMapDataset` in order to use the"
-                " `asympotic_approximation`"
-            )
+        # if not isinstance(self.dataset, AsimovMapDataset):
+        # raise AsimovApproximationError(
+        #     "`dataset` must be an `AsimovMapDataset` in order to use the"
+        #     " `asympotic_approximation`"
+        # )
 
         return norm.cdf(np.sqrt(ts_val) - (poi_val - poi_true_val) / self.sigma())
 
@@ -186,7 +184,7 @@ class QTildeMuTestStatistic(TestStatistic):
             )
 
         self.fit = Fit()
-        self.fit_result = self.fit.run(datasets=[self.dataset])
+        self.fit_result = self.fit.run(datasets=self.dataset)
         self.poi_best = self.fit_result.parameters[self.poi_name].value
         if self.poi_best < 0:
             self.dataset.models.parameters[self.poi_name].scan_values = [0]
@@ -238,21 +236,21 @@ class QTildeMuTestStatistic(TestStatistic):
         return pois
 
     def sigma(self):
-        if not isinstance(self.dataset, AsimovMapDataset):
-            raise AsimovApproximationError(
-                "`dataset` must be an `AsimovMapDataset` in order to calculate"
-                " `sigma`"
-            )
+        # if not isinstance(self.dataset, AsimovMapDataset):
+        # raise AsimovApproximationError(
+        #     "`dataset` must be an `AsimovMapDataset` in order to calculate"
+        #     " `sigma`"
+        # )
         return np.sqrt(self.fit_result.covariance_result.matrix[0, 0])
 
     def asympotic_approximation_pdf(
         self, ts_val, poi_val, same=True, poi_true_val=None
     ):
-        if not isinstance(self.dataset, AsimovMapDataset):
-            raise AsimovApproximationError(
-                "`dataset` must be an `AsimovMapDataset` in order to use the"
-                " `asympotic_approximation`"
-            )
+        # if not isinstance(self.dataset, AsimovMapDataset):
+        # raise AsimovApproximationError(
+        #     "`dataset` must be an `AsimovMapDataset` in order to use the"
+        #     " `asympotic_approximation`"
+        # )
 
         sigma = self.sigma()
 
@@ -287,11 +285,11 @@ class QTildeMuTestStatistic(TestStatistic):
     def asympotic_approximation_cdf(
         self, ts_val, poi_val, same=True, poi_true_val=None
     ):
-        if not isinstance(self.dataset, AsimovMapDataset):
-            raise AsimovApproximationError(
-                "`dataset` must be an `AsimovMapDataset` in order to use the"
-                " `asympotic_approximation`"
-            )
+        # if not isinstance(self.dataset, AsimovMapDataset):
+        # raise AsimovApproximationError(
+        #     "`dataset` must be an `AsimovMapDataset` in order to use the"
+        #     " `asympotic_approximation`"
+        # )
 
         sigma = self.sigma()
         if same:

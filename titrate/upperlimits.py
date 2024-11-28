@@ -4,7 +4,6 @@ import astropy.units as u
 import numpy as np
 from astropy.table import QTable
 from gammapy.astro.darkmatter import DarkMatterAnnihilationSpectralModel
-from gammapy.datasets import Datasets
 from gammapy.modeling import Fit
 from gammapy.modeling.models import (
     FoVBackgroundModel,
@@ -32,6 +31,7 @@ class ULCalculator:
         poi_name="scale",
         cl=0.95,
         cl_type="s",
+        analysis="3d",
     ):
         self.measurement_dataset = measurement_dataset
         self.poi_name = poi_name
@@ -47,6 +47,7 @@ class ULCalculator:
             raise ValueError('cl_type must be either "s+b" or "s"')
         self.cl_type = cl_type
         self.cl = cl
+        self.analysis = analysis
 
     def compute(self):
         poi_best = self.statistic.poi_best
@@ -55,11 +56,15 @@ class ULCalculator:
             poi_ul = 1e-2
         else:
             poi_ul = poi_best + 0.01 * poi_best
-        while self.pvalue(poi_ul, cl_type=self.cl_type) > 1 - self.cl or np.isnan(
-            self.pvalue(poi_ul, cl_type=self.cl_type)
-        ):
+        prev_pval = 0
+        while (
+            (pval := self.pvalue(poi_ul, cl_type=self.cl_type)) > 1 - self.cl
+        ) or np.isnan(pval):
+            prev_pval = pval
             poi_ul *= 2
 
+        if prev_pval == 0:
+            return np.nan
         interp_ul_points = np.linspace(poi_ul / 2, poi_ul, 10)
         interp_pvalues = np.array(
             [
@@ -67,6 +72,8 @@ class ULCalculator:
                 for interp_ul in interp_ul_points
             ]
         ).ravel()
+        interp_pvalues[0] = prev_pval
+        print(prev_pval, pval)
         interpolation = interp1d(interp_ul_points, interp_pvalues - 1 + self.cl)
         if interpolation(interp_ul_points[0]) < 0:
             print(
@@ -74,6 +81,7 @@ class ULCalculator:
                 interpolation(interp_ul_points[-1]),
                 self.measurement_dataset,
             )
+
         poi_ul = brentq(interpolation, poi_ul / 2, poi_ul)
 
         return poi_ul
@@ -81,9 +89,20 @@ class ULCalculator:
     def pvalue(self, poi_ul, cl_type):
         pval_bkg = 0
         if self.statistic.__class__.__name__ == "QTildeMuTestStatistic":
-            asimov_dataset = AsimovMapDataset.from_MapDataset(self.measurement_dataset)
+            if self.analysis == "3d":
+                asimov_dataset = AsimovMapDataset.from_MapDataset(
+                    self.measurement_dataset
+                )
+            elif self.analysis == "1d":
+                asimov_dataset = AsimovSpectralDataset.from_SpectralDataset(
+                    self.measurement_dataset
+                )
             asimov_dataset.models.parameters[self.poi_name].value = poi_ul
-            asimov_dataset.fake()
+            if self.analysis == "3d":
+                asimov_dataset.fake()
+            if self.analysis == "1d":
+                asimov_dataset.fake()
+
             statistic = self.statistic.__class__(asimov_dataset, poi_name=self.poi_name)
             ts_val, valid = self.statistic.evaluate(
                 poi_ul
@@ -94,11 +113,21 @@ class ULCalculator:
             pval_sig_bkg = statistic.pvalue(poi_ul, ts_val=ts_val)
 
             if cl_type == "s":
-                no_signal_asimov_dataset = AsimovMapDataset.from_MapDataset(
-                    self.measurement_dataset
-                )
+                if self.analysis == "3d":
+                    no_signal_asimov_dataset = AsimovMapDataset.from_MapDataset(
+                        self.measurement_dataset
+                    )
+                elif self.analysis == "1d":
+                    no_signal_asimov_dataset = (
+                        AsimovSpectralDataset.from_SpectralDataset(
+                            self.measurement_dataset
+                        )
+                    )
                 no_signal_asimov_dataset.models.parameters[self.poi_name].value = 0
-                no_signal_asimov_dataset.fake()
+                if self.analysis == "3d":
+                    no_signal_asimov_dataset.fake()
+                if self.analysis == "1d":
+                    no_signal_asimov_dataset.fake()
                 no_signal_statistic = self.statistic.__class__(
                     no_signal_asimov_dataset, poi_name=self.poi_name
                 )
@@ -121,10 +150,9 @@ class ULCalculator:
     def expected_uls(self):
         # Create asimov dataset
         # asimov_dataset = AsimovMapDataset.from_MapDataset(self.measurement_dataset)
-        asimov_dataset = []
-        for dataset in self.measurement_dataset:
-            asimov_dataset.append(AsimovSpectralDataset.from_SpectralDataset(dataset))
-        asimov_dataset = Datasets(asimov_dataset)
+        asimov_dataset = AsimovSpectralDataset.from_SpectralDataset(
+            self.measurement_dataset
+        )
         # asimov_dataset =
         # AsimovSpectralDataset.from_SpectralDatasets(self.measurement_dataset)
         asimov_dataset.models.parameters[self.poi_name].value = 0
@@ -183,6 +211,7 @@ class ULFactory:
         self.max_workers = max_workers
         self.kwargs["cl"] = self.cl
         self.kwargs["cl_type"] = self.cl_type
+        self.kwargs["analysis"] = self.analysis
         self.uls = None
         self.expected_uls = None
 
