@@ -22,10 +22,7 @@ def calc_ts_toyMC(dataset, test_statistic, poi_val, poi_true_val, poi_name):
 def copy_dataset_with_models(dataset):
     """Copies a dataset inlcuding the models."""
     dataset_copy = dataset.copy()
-    models_copy = dataset.models.copy()
-    models_copy = models_copy.reassign(dataset.name, dataset_copy.name)
-    dataset_copy.models = models_copy
-    # copy_models_to_dataset(dataset.models, dataset_copy)
+    copy_models_to_dataset(dataset.models, dataset_copy)
 
     return dataset_copy
 
@@ -42,7 +39,7 @@ def copy_models_to_dataset(models, dataset):
         for model in model_copies:
             if hasattr(model, "_name"):
                 model._name = f"{dataset.name}-{model._name}"
-            elif hasattr(model, "datasets_names"):
+            if hasattr(model, "datasets_names"):
                 model.datasets_names = [dataset.name]
             else:
                 raise CopyModelError(

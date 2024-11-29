@@ -4,8 +4,6 @@ import numpy as np
 from gammapy.modeling import Fit
 from scipy.stats import kstwo, norm
 
-from titrate.datasets import AsimovMapDataset
-
 
 class POIError(IndexError):
     """Parameter of interest is not defined in model"""
@@ -58,9 +56,7 @@ class QMuTestStatistic(TestStatistic):
             )
 
         self.fit = Fit()
-        print(dataset)
         self.fit_result = self.fit.run(datasets=self.dataset)
-        print(dataset)
         self.poi_best = self.fit_result.parameters[self.poi_name].value
         self.likelihood_minimum = self.dataset.stat_sum()
 
@@ -129,9 +125,6 @@ class QMuTestStatistic(TestStatistic):
         #         "`dataset` must be an `AsimovMapDataset` in order to use the"
         #         " `asympotic_approximation`"
         #     )
-        print((poi_val - poi_true_val) / self.sigma())
-        print(poi_val - poi_true_val)
-        print(self.sigma())
         return (
             1
             / (2 * np.sqrt(2 * np.pi * ts_val))
