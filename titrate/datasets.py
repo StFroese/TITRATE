@@ -49,7 +49,7 @@ class AsimovMapDataset(MapDataset):
 
 class AsimovSpectralDataset(SpectrumDataset):
     """
-    AsimovMapDataset is a subclass of a gammapy MapDataset
+    AsimovMapDataset is a subclass of a gammapy SpectrumDataset
     and provides asimov-like fake method.
     """
 
@@ -74,10 +74,11 @@ class AsimovSpectralDataset(SpectrumDataset):
             deleted_entries[key] = dataset_dict.pop(key)
 
         asimov_dataset = AsimovSpectralDataset(**dataset_dict)
-        # copy IRFs separately
-        asimov_dataset._background_parameters_cached = deleted_entries[
-            "_background_parameters_cached"
-        ]
+        for key in deleted_entries.keys():
+            if key == "_name":
+                continue
+            setattr(asimov_dataset, key, deleted_entries[key])
+
         copy_models_to_dataset(dataset.models, asimov_dataset)
         asimov_dataset.fake()
 

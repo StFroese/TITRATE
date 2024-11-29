@@ -1,10 +1,10 @@
-name: titrate-dev
+name: titrate-dev-g1.2
 channels:
   - conda-forge
   - default
 dependencies:
   - python=3.11
-  - gammapy
+  - gammapy=1.2
   - numpy
   - scipy
   - matplotlib

@@ -5,7 +5,7 @@ from astropy import visualization as viz
 from astropy.table import QTable, unique
 from astropy.units import Quantity
 
-from titrate.datasets import AsimovMapDataset
+from titrate.datasets import AsimovMapDataset, AsimovSpectralDataset
 from titrate.statistics import QMuTestStatistic, QTildeMuTestStatistic
 
 STATISTICS = {"qmu": QMuTestStatistic, "qtildemu": QTildeMuTestStatistic}
@@ -135,11 +135,18 @@ class ValidationPlotter:
         statistic="qmu",
         poi_name="scale",
         ax=None,
+        analysis="3d",
     ):
         self.path = path
         self.ax = ax if ax is not None else plt.gca()
+        self.analysis = analysis
 
-        asimov_dataset = AsimovMapDataset.from_MapDataset(measurement_dataset)
+        if self.analysis == "3d":
+            asimov_dataset = AsimovMapDataset.from_MapDataset(measurement_dataset)
+        elif self.analysis == "1d":
+            asimov_dataset = AsimovSpectralDataset.from_SpectralDataset(
+                measurement_dataset
+            )
 
         try:
             table_diff = QTable.read(

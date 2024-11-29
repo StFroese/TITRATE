@@ -8,7 +8,7 @@ from astropy.units import Quantity
 from gammapy.astro.darkmatter import DarkMatterAnnihilationSpectralModel
 from gammapy.modeling.models import SkyModel
 
-from titrate.datasets import AsimovMapDataset
+from titrate.datasets import AsimovMapDataset, AsimovSpectralDataset
 from titrate.statistics import QMuTestStatistic, QTildeMuTestStatistic, kstest
 from titrate.utils import calc_ts_toyMC
 
@@ -25,6 +25,7 @@ class AsymptoticValidator:
         channel=None,
         mass=None,
         max_workers=None,
+        analysis="3d",
     ):
         if statistic not in STATISTICS.keys():
             raise ValueError(
@@ -34,7 +35,15 @@ class AsymptoticValidator:
         self.statistic = STATISTICS[statistic]
 
         self.measurement_dataset = measurement_dataset
-        self.asimov_dataset = AsimovMapDataset.from_MapDataset(self.measurement_dataset)
+        self.analysis = analysis
+        if self.analysis == "3d":
+            self.asimov_dataset = AsimovMapDataset.from_MapDataset(
+                self.measurement_dataset
+            )
+        elif self.analysis == "1d":
+            self.asimov_dataset = AsimovSpectralDataset.from_SpectralDataset(
+                self.measurement_dataset
+            )
 
         self.path = path
         self.channel = channel
