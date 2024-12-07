@@ -209,6 +209,7 @@ class QTildeMuTestStatistic(TestStatistic):
         global_fit_valid: bool
             True if the global fit is valid, False otherwise.
         """
+        # print(self.dataset)
         global_fit_valid = True
         if self.poi_best > poi_val:
             return np.array([0]), global_fit_valid
@@ -216,6 +217,7 @@ class QTildeMuTestStatistic(TestStatistic):
         self.dataset.models.parameters[self.poi_name].scan_values = [poi_val]
         stats = self.fit.stat_profile(self.dataset, self.poi_name, reoptimize=True)
         ts = stats["stat_scan"] - self.likelihood_constant
+        # print(self.poi_best, poi_val, ts)
 
         # catch the case when the test statistic is negative
         # happens when the best fit value of the POI is not the global minimum
@@ -273,8 +275,7 @@ class QTildeMuTestStatistic(TestStatistic):
             / (np.sqrt(2 * np.pi) * 2 * poi_val / sigma)
             * np.exp(
                 -0.5
-                * (ts_val - (poi_val**2 - 2 * poi_val * poi_true_val) / sigma**2)
-                ** 2
+                * (ts_val - (poi_val**2 - 2 * poi_val * poi_true_val) / sigma**2) ** 2
                 / (2 * poi_val / sigma) ** 2
             ),
             1
@@ -292,6 +293,8 @@ class QTildeMuTestStatistic(TestStatistic):
         # )
 
         sigma = self.sigma()
+        # print(ts_val, sigma, poi_val)
+        # print(ts_val + poi_val**2 / sigma**2)
         if same:
             return np.where(
                 ts_val > poi_val**2 / sigma**2,

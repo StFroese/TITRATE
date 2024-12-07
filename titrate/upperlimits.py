@@ -17,7 +17,7 @@ from scipy.stats import norm
 
 from titrate.datasets import AsimovMapDataset, AsimovSpectralDataset
 from titrate.statistics import QMuTestStatistic, QTildeMuTestStatistic
-from titrate.utils import copy_models_to_dataset
+from titrate.utils import copy_dataset_with_models, copy_models_to_dataset
 
 STATISTICS = {"qmu": QMuTestStatistic, "qtildemu": QTildeMuTestStatistic}
 CS = DarkMatterAnnihilationSpectralModel.THERMAL_RELIC_CROSS_SECTION
@@ -35,13 +35,15 @@ class ULCalculator:
     ):
         self.measurement_dataset = measurement_dataset
         self.poi_name = poi_name
+        self.stat_class_name = statistic
         if statistic not in STATISTICS.keys():
             raise ValueError(
                 "Statistic must be one of {}".format(list(STATISTICS.keys()))
             )
         self.statistic = STATISTICS[statistic](
-            self.measurement_dataset, poi_name=self.poi_name
+            copy_dataset_with_models(self.measurement_dataset), poi_name=self.poi_name
         )
+        # print(self.measurement_dataset)
 
         if cl_type not in ["s+b", "s"]:
             raise ValueError('cl_type must be either "s+b" or "s"')
@@ -55,13 +57,14 @@ class ULCalculator:
         if poi_best < 0:
             poi_ul = 1e-2
         else:
-            poi_ul = poi_best + 0.01 * poi_best
+            poi_ul = poi_best * 2
         prev_pval = 0
         while (
             (pval := self.pvalue(poi_ul, cl_type=self.cl_type)) > 1 - self.cl
         ) or np.isnan(pval):
             prev_pval = pval
             poi_ul *= 2
+            print(poi_ul)
 
         if prev_pval == 0:
             return np.nan
@@ -73,71 +76,100 @@ class ULCalculator:
             ]
         ).ravel()
         interp_pvalues[0] = prev_pval
-        print(prev_pval, pval)
+        # print(prev_pval, pval)
         interpolation = interp1d(interp_ul_points, interp_pvalues - 1 + self.cl)
-        if interpolation(interp_ul_points[0]) < 0:
-            print(
-                interpolation(interp_ul_points[0]),
-                interpolation(interp_ul_points[-1]),
-                self.measurement_dataset,
-            )
+        # if interpolation(interp_ul_points[0]) < 0:
+        #     print(
+        #         interpolation(interp_ul_points[0]),
+        #         interpolation(interp_ul_points[-1]),
+        #         self.measurement_dataset,
+        #     )
 
         poi_ul = brentq(interpolation, poi_ul / 2, poi_ul)
+        print("FOUND:", poi_ul)
 
         return poi_ul
 
     def pvalue(self, poi_ul, cl_type):
         pval_bkg = 0
         if self.statistic.__class__.__name__ == "QTildeMuTestStatistic":
-            if self.analysis == "3d":
-                asimov_dataset = AsimovMapDataset.from_MapDataset(
-                    self.measurement_dataset
-                )
-            elif self.analysis == "1d":
-                asimov_dataset = AsimovSpectralDataset.from_SpectralDataset(
-                    self.measurement_dataset
-                )
-            asimov_dataset.models.parameters[self.poi_name].value = poi_ul
-            if self.analysis == "3d":
-                asimov_dataset.fake()
-            if self.analysis == "1d":
-                asimov_dataset.fake()
-
-            statistic = self.statistic.__class__(asimov_dataset, poi_name=self.poi_name)
             ts_val, valid = self.statistic.evaluate(
                 poi_ul
             )  # ts_val on measurement_dataset
             if not valid:
                 ts_val = 0
+            # find best NPs for proposed poi_ul on measurement_dataset
+            with self.measurement_dataset.models.parameters.restore_status():
+                self.measurement_dataset.models.parameters[self.poi_name].value = poi_ul
+                self.measurement_dataset.models.parameters[self.poi_name].frozen = True
+                fit = Fit()
+                _ = fit.run(self.measurement_dataset)
+                self.measurement_dataset.models.parameters[self.poi_name].frozen = False
+                # print(self.measurement_dataset)
 
-            pval_sig_bkg = statistic.pvalue(poi_ul, ts_val=ts_val)
-
-            if cl_type == "s":
                 if self.analysis == "3d":
-                    no_signal_asimov_dataset = AsimovMapDataset.from_MapDataset(
+                    asimov_dataset = AsimovMapDataset.from_MapDataset(
                         self.measurement_dataset
                     )
                 elif self.analysis == "1d":
-                    no_signal_asimov_dataset = (
-                        AsimovSpectralDataset.from_SpectralDataset(
+                    asimov_dataset = AsimovSpectralDataset.from_SpectralDataset(
+                        self.measurement_dataset
+                    )
+                # asimov_dataset.models.parameters[self.poi_name].value = poi_ul
+                # fit = Fit()
+                # _ = fit.run(self.measurement_dataset)
+            # print(self.measurement_dataset)
+            # print(asimov_dataset)
+            asimov_dataset.fake()
+
+            # statistic = self.statistic.__class__(asimov_dataset, poi_name=self.poi_name)
+            statistic = STATISTICS[self.stat_class_name](
+                asimov_dataset, poi_name=self.poi_name
+            )
+
+            pval_sig_bkg = statistic.pvalue(poi_ul, ts_val=ts_val)
+            # print(pval_sig_bkg)
+
+            if cl_type == "s":
+                with self.measurement_dataset.models.parameters.restore_status():
+                    self.measurement_dataset.models.parameters[self.poi_name].value = 0
+                    self.measurement_dataset.models.parameters[
+                        self.poi_name
+                    ].frozen = True
+                    fit = Fit()
+                    _ = fit.run(self.measurement_dataset)
+                    self.measurement_dataset.models.parameters[
+                        self.poi_name
+                    ].frozen = False
+                    if self.analysis == "3d":
+                        no_signal_asimov_dataset = AsimovMapDataset.from_MapDataset(
                             self.measurement_dataset
                         )
-                    )
-                no_signal_asimov_dataset.models.parameters[self.poi_name].value = 0
-                if self.analysis == "3d":
-                    no_signal_asimov_dataset.fake()
-                if self.analysis == "1d":
-                    no_signal_asimov_dataset.fake()
-                no_signal_statistic = self.statistic.__class__(
+                    elif self.analysis == "1d":
+                        no_signal_asimov_dataset = (
+                            AsimovSpectralDataset.from_SpectralDataset(
+                                self.measurement_dataset
+                            )
+                        )
+                # no_signal_asimov_dataset.models.parameters[self.poi_name].value = 0
+                no_signal_asimov_dataset.fake()
+                # no_signal_statistic = self.statistic.__class__(
+                #     no_signal_asimov_dataset, poi_name=self.poi_name
+                # )
+                no_signal_statistic = STATISTICS[self.stat_class_name](
                     no_signal_asimov_dataset, poi_name=self.poi_name
                 )
-                ts_val_no_signal, valid_no_signal = self.statistic.evaluate(
-                    0
-                )  # ts_val on measurement_dataset with no signal
-                if not valid_no_signal:
-                    ts_val_no_signal = 0
+                # ts_val_no_signal, valid_no_signal = self.statistic.evaluate(
+                #     0
+                # )  # ts_val on measurement_dataset with no signal
+                # print(ts_val_no_signal, "ts")
+                # if not valid_no_signal:
+                #     ts_val_no_signal = 0
 
-                pval_bkg = no_signal_statistic.pvalue(0, ts_val=ts_val_no_signal)
+                # pval_bkg = no_signal_statistic.pvalue(0, ts_val=ts_val_no_signal)
+                pval_bkg = 1 - no_signal_statistic.pvalue(
+                    poi_val=poi_ul, ts_val=ts_val, same=False, poi_true_val=0
+                )
 
         else:
             pval_sig_bkg = self.statistic.pvalue(poi_ul)
@@ -149,10 +181,12 @@ class ULCalculator:
 
     def expected_uls(self):
         # Create asimov dataset
-        # asimov_dataset = AsimovMapDataset.from_MapDataset(self.measurement_dataset)
-        asimov_dataset = AsimovSpectralDataset.from_SpectralDataset(
-            self.measurement_dataset
-        )
+        if self.analysis == "3d":
+            asimov_dataset = AsimovMapDataset.from_MapDataset(self.measurement_dataset)
+        else:
+            asimov_dataset = AsimovSpectralDataset.from_SpectralDataset(
+                self.measurement_dataset
+            )
         # asimov_dataset =
         # AsimovSpectralDataset.from_SpectralDatasets(self.measurement_dataset)
         asimov_dataset.models.parameters[self.poi_name].value = 0
@@ -220,7 +254,7 @@ class ULFactory:
         if self.analysis == "3d":
             spatial_model = TemplateSpatialModel(self.jfactor, normalize=False)
 
-            bkg_model = FoVBackgroundModel(dataset_name="foo")
+            bkg_model = self.measurement_dataset.background_model
             for channel in self.channels:
                 for mass in self.masses:
                     spectral_model = DarkMatterAnnihilationSpectralModel(
@@ -254,7 +288,7 @@ class ULFactory:
         return ULCalculator(measurement_copy, **self.kwargs)
 
     def compute_uls(self):
-        with ProcessPoolExecutor(self.max_workers) as pool:
+        with ProcessPoolExecutor(max_workers=self.max_workers) as pool:
             futures = [
                 pool.submit(self.setup_calculator(models).compute)
                 for models in self.setup_models()
@@ -263,7 +297,7 @@ class ULFactory:
         self.uls = uls
 
     def compute_expected(self):
-        with ProcessPoolExecutor(self.max_workers) as pool:
+        with ProcessPoolExecutor(max_workers=self.max_workers) as pool:
             futures = [
                 pool.submit(self.setup_calculator(models).expected_uls)
                 for models in self.setup_models()
