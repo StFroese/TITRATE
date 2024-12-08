@@ -57,18 +57,18 @@ class ULCalculator:
         if poi_best < 0:
             poi_ul = 1e-2
         else:
-            poi_ul = poi_best * 2
+            poi_ul = poi_best
         prev_pval = 0
         while (
             (pval := self.pvalue(poi_ul, cl_type=self.cl_type)) > 1 - self.cl
         ) or np.isnan(pval):
             prev_pval = pval
             poi_ul *= 2
-            print(poi_ul)
 
         if prev_pval == 0:
             return np.nan
-        interp_ul_points = np.linspace(poi_ul / 2, poi_ul, 10)
+        interp_ul_points = np.linspace(poi_ul / 2, poi_ul, 5)
+        # print(prev_pval, pval)
         interp_pvalues = np.array(
             [
                 self.pvalue(interp_ul, cl_type=self.cl_type)
@@ -76,6 +76,7 @@ class ULCalculator:
             ]
         ).ravel()
         interp_pvalues[0] = prev_pval
+        interp_pvalues[-1] = pval
         # print(prev_pval, pval)
         interpolation = interp1d(interp_ul_points, interp_pvalues - 1 + self.cl)
         # if interpolation(interp_ul_points[0]) < 0:
@@ -84,8 +85,8 @@ class ULCalculator:
         #         interpolation(interp_ul_points[-1]),
         #         self.measurement_dataset,
         #     )
-
         poi_ul = brentq(interpolation, poi_ul / 2, poi_ul)
+
         print("FOUND:", poi_ul)
 
         return poi_ul
@@ -97,7 +98,7 @@ class ULCalculator:
                 poi_ul
             )  # ts_val on measurement_dataset
             if not valid:
-                ts_val = 0
+                ts_val = [0]
             # find best NPs for proposed poi_ul on measurement_dataset
             with self.measurement_dataset.models.parameters.restore_status():
                 self.measurement_dataset.models.parameters[self.poi_name].value = poi_ul
@@ -128,7 +129,6 @@ class ULCalculator:
             )
 
             pval_sig_bkg = statistic.pvalue(poi_ul, ts_val=ts_val)
-            # print(pval_sig_bkg)
 
             if cl_type == "s":
                 with self.measurement_dataset.models.parameters.restore_status():
@@ -181,15 +181,24 @@ class ULCalculator:
 
     def expected_uls(self):
         # Create asimov dataset
-        if self.analysis == "3d":
-            asimov_dataset = AsimovMapDataset.from_MapDataset(self.measurement_dataset)
-        else:
-            asimov_dataset = AsimovSpectralDataset.from_SpectralDataset(
-                self.measurement_dataset
-            )
+        with self.measurement_dataset.models.parameters.restore_status():
+            self.measurement_dataset.models.parameters[self.poi_name].value = 0
+            self.measurement_dataset.models.parameters[self.poi_name].frozen = True
+            fit = Fit()
+            _ = fit.run(self.measurement_dataset)
+            self.measurement_dataset.models.parameters[self.poi_name].frozen = False
+            # print(self.measurement_dataset)
+            if self.analysis == "3d":
+                asimov_dataset = AsimovMapDataset.from_MapDataset(
+                    self.measurement_dataset
+                )
+            else:
+                asimov_dataset = AsimovSpectralDataset.from_SpectralDataset(
+                    self.measurement_dataset
+                )
         # asimov_dataset =
         # AsimovSpectralDataset.from_SpectralDatasets(self.measurement_dataset)
-        asimov_dataset.models.parameters[self.poi_name].value = 0
+        # asimov_dataset.models.parameters[self.poi_name].value = 0
         # asimov_dataset.fake()
 
         fit = Fit()
@@ -214,7 +223,7 @@ class ULCalculator:
         if cl_type == "s+b":
             return sigma * (norm.ppf(self.cl) + n_sigma)
         elif cl_type == "s":
-            return sigma * (norm.ppf(1 - (1 - self.cl) * norm.pdf(n_sigma)) + n_sigma)
+            return sigma * (norm.ppf(1 - (1 - self.cl) * norm.cdf(n_sigma)) + n_sigma)
 
 
 class ULFactory:

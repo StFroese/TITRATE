@@ -295,6 +295,12 @@ class QTildeMuTestStatistic(TestStatistic):
         sigma = self.sigma()
         # print(ts_val, sigma, poi_val)
         # print(ts_val + poi_val**2 / sigma**2)
+        test = np.where(
+            ts_val > poi_val**2 / sigma**2,
+            norm.cdf((ts_val + poi_val**2 / sigma**2) / (2 * poi_val / sigma)),
+            norm.cdf(np.sqrt(ts_val)),
+        )
+
         if same:
             return np.where(
                 ts_val > poi_val**2 / sigma**2,
