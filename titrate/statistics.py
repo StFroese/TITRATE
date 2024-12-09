@@ -4,6 +4,8 @@ import numpy as np
 from gammapy.modeling import Fit
 from scipy.stats import kstwo, norm
 
+from titrate.datasets import AsimovMapDataset, AsimovSpectralDataset
+
 
 class POIError(IndexError):
     """Parameter of interest is not defined in model"""
@@ -186,13 +188,16 @@ class QTildeMuTestStatistic(TestStatistic):
         self.fit = Fit()
         self.fit_result = self.fit.run(datasets=self.dataset)
         self.poi_best = self.fit_result.parameters[self.poi_name].value
-        if self.poi_best < 0:
-            self.dataset.models.parameters[self.poi_name].scan_values = [0]
-            self.likelihood_constant = self.fit.stat_profile(
-                self.dataset, self.poi_name, reoptimize=True
-            )["stat_scan"]
-        else:
-            self.likelihood_constant = self.dataset.stat_sum()
+        if self.poi_best < 0 and not (
+            isinstance(self.dataset, AsimovMapDataset)
+            or isinstance(self.dataset, AsimovSpectralDataset)
+        ):
+            self.dataset.models.parameters[self.poi_name].value = 0
+            self.dataset.models.parameters[self.poi_name].frozen = True
+            self.fit_result = self.fit.run(datasets=self.dataset)
+            self.dataset.models.parameters[self.poi_name].frozen = False
+
+        self.likelihood_constant = self.dataset.stat_sum()
 
     def evaluate(self, poi_val):
         """
@@ -209,26 +214,17 @@ class QTildeMuTestStatistic(TestStatistic):
         global_fit_valid: bool
             True if the global fit is valid, False otherwise.
         """
-        # print(self.dataset)
-        global_fit_valid = True
         if self.poi_best > poi_val:
-            return np.array([0]), global_fit_valid
+            return np.array([0])
 
         self.dataset.models.parameters[self.poi_name].scan_values = [poi_val]
         stats = self.fit.stat_profile(self.dataset, self.poi_name, reoptimize=True)
         ts = stats["stat_scan"] - self.likelihood_constant
-        # print(self.poi_best, poi_val, ts)
 
-        # catch the case when the test statistic is negative
-        # happens when the best fit value of the POI is not the global minimum
-        # of the likelihood
-        # if ts < 0:
         if ts < 0 and np.isclose(ts, 0, atol=1e-03):
-            print(ts)
             ts = np.array([0])
-            global_fit_valid = True
 
-        return ts, global_fit_valid
+        return ts
 
     def check_for_pois(self):
         """POI must be a norm parameter by definition since
@@ -240,24 +236,17 @@ class QTildeMuTestStatistic(TestStatistic):
                 pois.append(parameter.name)
         return pois
 
-    def sigma(self):
-        # if not isinstance(self.dataset, AsimovMapDataset):
-        # raise AsimovApproximationError(
-        #     "`dataset` must be an `AsimovMapDataset` in order to calculate"
-        #     " `sigma`"
-        # )
-        return np.sqrt(self.fit_result.covariance_result.matrix[0, 0])
+    def sigma(self, poi_val, poi_true_val):
+        if poi_val == 0:
+            return np.sqrt(self.fit_result.covariance_result.matrix[0, 0])
+
+        ts = self.evaluate(poi_val)
+        return (poi_val - poi_true_val) / np.sqrt(ts)
 
     def asympotic_approximation_pdf(
         self, ts_val, poi_val, same=True, poi_true_val=None
     ):
-        # if not isinstance(self.dataset, AsimovMapDataset):
-        # raise AsimovApproximationError(
-        #     "`dataset` must be an `AsimovMapDataset` in order to use the"
-        #     " `asympotic_approximation`"
-        # )
-
-        sigma = self.sigma()
+        sigma = self.sigma(poi_val, poi_true_val)
 
         if same:
             return np.where(
@@ -289,52 +278,31 @@ class QTildeMuTestStatistic(TestStatistic):
     def asympotic_approximation_cdf(
         self, ts_val, poi_val, same=True, poi_true_val=None
     ):
-        # if not isinstance(self.dataset, AsimovMapDataset):
-        # raise AsimovApproximationError(
-        #     "`dataset` must be an `AsimovMapDataset` in order to use the"
-        #     " `asympotic_approximation`"
-        # )
-
-        sigma = self.sigma()
+        sigma = self.sigma(poi_val, poi_true_val)
 
         if same:
             return np.where(
-                ts_val == 0,
-                0.5,
-                np.where(
-                    ts_val > poi_val**2 / sigma**2,
-                    norm.cdf((ts_val + poi_val**2 / sigma**2) / (2 * poi_val / sigma)),
-                    norm.cdf(np.sqrt(ts_val)),
-                ),
-            )
-
-        return np.where(
-            ts_val == 0,
-            norm.cdf((poi_true_val - poi_val) / sigma),
-            np.where(
                 ts_val > poi_val**2 / sigma**2,
-                norm.cdf(
-                    (ts_val - (poi_val**2 - 2 * poi_val * poi_true_val) / sigma**2)
-                    / (2 * poi_val / sigma)
-                ),
-                norm.cdf(np.sqrt(ts_val) - (poi_val - poi_true_val) / sigma),
+                norm.cdf((ts_val + poi_val**2 / sigma**2) / (2 * poi_val / sigma)),
+                norm.cdf(np.sqrt(ts_val)),
+            )
+        print(poi_val**2 / sigma**2, poi_val, sigma)
+        if sigma == 0:
+            print(self.dataset)
+        return np.where(
+            ts_val > poi_val**2 / sigma**2,
+            norm.cdf(
+                (ts_val - (poi_val**2 - 2 * poi_val * poi_true_val) / sigma**2)
+                / (2 * poi_val / sigma)
             ),
+            norm.cdf(np.sqrt(ts_val) - (poi_val - poi_true_val) / sigma),
         )
 
     def pvalue(self, poi_val, same=True, poi_true_val=None, ts_val=None):
         if ts_val is None:
-            ts_val, valid = self.evaluate(poi_val)
-            ts_val = ts_val if valid else 0
+            ts_val = self.evaluate(poi_val)
         if same:
             return 1 - self.asympotic_approximation_cdf(ts_val, poi_val)
-        # print("ts)val", ts_val)
-        # print(
-        #     "in p",
-        #     self.asympotic_approximation_cdf(
-        #         ts_val, poi_val, same=False, poi_true_val=poi_true_val
-        #     ),
-        # )
-        # print("in p2", self.sigma(), poi_val)
         return 1 - self.asympotic_approximation_cdf(
             ts_val, poi_val, same=False, poi_true_val=poi_true_val
         )
@@ -344,7 +312,7 @@ class QTildeMuTestStatistic(TestStatistic):
             ts_val, valid = self.evaluate(poi_val)
             ts_val = ts_val if valid else 0
         if same:
-            sigma = self.sigma()
+            sigma = self.sigma(poi_val, poi_true_val)
             if ts_val > poi_val**2 / sigma**2:
                 return (ts_val + poi_val**2 / sigma**2) / (2 * poi_val / sigma)
             else:

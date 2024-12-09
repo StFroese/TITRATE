@@ -4,7 +4,7 @@ import astropy.units as u
 import numpy as np
 from astropy.table import QTable
 from gammapy.astro.darkmatter import DarkMatterAnnihilationSpectralModel
-from gammapy.modeling import Fit, Covariance
+from gammapy.modeling import Covariance, Fit
 from gammapy.modeling.fit import OptimizeResult
 from gammapy.modeling.models import (
     FoVBackgroundModel,
@@ -45,7 +45,6 @@ class ULCalculator:
         self.statistic = STATISTICS[statistic](
             copy_dataset_with_models(self.measurement_dataset), poi_name=self.poi_name
         )
-        # print(self.measurement_dataset)
 
         if cl_type not in ["s+b", "s"]:
             raise ValueError('cl_type must be either "s+b" or "s"')
@@ -72,7 +71,8 @@ class ULCalculator:
         self.no_signal_statistic = STATISTICS[self.stat_class_name](
             self.no_signal_asimov_dataset, poi_name=self.poi_name
         )
-        print(self.no_signal_statistic.dataset)
+        # store the poi_ul somewhere
+        self.poi_ul = None
 
     def compute(self):
         poi_best = self.statistic.poi_best
@@ -91,8 +91,6 @@ class ULCalculator:
             prev_pval = pval
             poi_ul *= 2
 
-        # if prev_pval == 0:
-        #     return np.nan
         interp_ul_points = np.linspace(poi_ul / 2, poi_ul, 5)
         interp_pvalues = np.array(
             [
@@ -101,75 +99,49 @@ class ULCalculator:
             ]
         ).ravel()
 
-        # print(interp_pvalues)
-        interp_pvalues[0] = prev_pval
-        interp_pvalues[-1] = pval
-        # print(interp_pvalues)
-        # mid_pval = self.pvalue(3 / 4 * poi_ul, cl_type=self.cl_type)
-        #
-        # interp_pvalues = np.array([prev_pval, mid_pval, pval]).ravel()
-        # interp_ul_points = np.array([poi_ul / 2, 3 / 4 * poi_ul, poi_ul])
-        # print(prev_pval, pval)
-        # print("LAST VAL:", pval, poi_ul)
         interpolation = interp1d(
             interp_ul_points, interp_pvalues - 1 + self.cl, kind="quadratic"
         )
-        # if interpolation(interp_ul_points[0]) < 0:
-        #     print(
-        #         interpolation(interp_ul_points[0]),
-        #         interpolation(interp_ul_points[-1]),
-        #         self.measurement_dataset,
-        #     )
+
         poi_ul = brentq(interpolation, poi_ul / 2, poi_ul)
-        # except:
-        #     print("adsfgsadfdsadf", interp_pvalues)
-        #     print(interp_ul_points)
 
         print("FOUND:", poi_ul)
+        self.poi_ul = poi_ul
 
         return poi_ul
 
     def pvalue(self, poi_ul, cl_type):
         pval_bkg = 0
         if self.statistic.__class__.__name__ == "QTildeMuTestStatistic":
-            ts_val, valid = self.statistic.evaluate(
-                poi_ul
-            )  # ts_val on measurement_dataset
-            if not valid:
-                ts_val = [0]
-            # find best NPs for proposed poi_ul on measurement_dataset
-            with self.measurement_dataset.models.parameters.restore_status():
-                self.measurement_dataset.models.parameters[self.poi_name].value = poi_ul
-                self.measurement_dataset.models.parameters[self.poi_name].frozen = True
-                fit = Fit()
-                _ = fit.run(self.measurement_dataset)
-                self.measurement_dataset.models.parameters[self.poi_name].frozen = False
-                # print(self.measurement_dataset)
+            ts_val = self.statistic.evaluate(poi_ul)  # ts_val on measurement_dataset
+            #
+            # # find best NPs for proposed poi_ul on measurement_dataset
+            # d = copy_dataset_with_models(self.measurement_dataset)
+            # d.models.parameters[self.poi_name].value = poi_ul
+            # d.models.parameters[self.poi_name].frozen = True
+            # fit = Fit()
+            # fit.run(d)
+            # d.models.parameters[self.poi_name].frozen = False
+            #
+            # if self.analysis == "3d":
+            #     asimov_dataset = AsimovMapDataset.from_MapDataset(d)
+            # elif self.analysis == "1d":
+            #     asimov_dataset = AsimovSpectralDataset.from_SpectralDataset(d)
+            #
+            # statistic = STATISTICS[self.stat_class_name](
+            #     asimov_dataset, poi_name=self.poi_name
+            # )
 
-                if self.analysis == "3d":
-                    asimov_dataset = AsimovMapDataset.from_MapDataset(
-                        self.measurement_dataset
-                    )
-                elif self.analysis == "1d":
-                    asimov_dataset = AsimovSpectralDataset.from_SpectralDataset(
-                        self.measurement_dataset
-                    )
-                # asimov_dataset.models.parameters[self.poi_name].value = poi_ul
-                # fit = Fit()
-                # _ = fit.run(self.measurement_dataset)
-            # print(self.measurement_dataset)
-            # print(asimov_dataset)
-
-            # statistic = self.statistic.__class__(asimov_dataset, poi_name=self.poi_name)
-            statistic = STATISTICS[self.stat_class_name](
-                asimov_dataset, poi_name=self.poi_name
-            )
-
-            pval_sig_bkg = statistic.pvalue(poi_ul, ts_val=ts_val)
+            # pval_sig_bkg = statistic.pvalue(poi_ul, ts_val=ts_val)
 
             if cl_type == "s":
-                pval_bkg = 1 - self.no_signal_statistic.pvalue(
-                    poi_val=poi_ul, ts_val=ts_val, same=False, poi_true_val=0
+                # pval_bkg = 1 - self.no_signal_statistic.pvalue(
+                #     poi_val=poi_ul, ts_val=ts_val, same=False, poi_true_val=0
+                # )
+
+                ts_val_bkg_asi = self.no_signal_statistic.evaluate(poi_ul)
+                return (1 - norm.cdf(np.sqrt(ts_val))) / norm.cdf(
+                    np.sqrt(ts_val_bkg_asi) - np.sqrt(ts_val)
                 )
 
         else:
@@ -181,7 +153,34 @@ class ULCalculator:
         return pval_sig_bkg / (1 - pval_bkg)
 
     def expected_uls(self):
-        sigma = self.no_signal_statistic.sigma()
+        # scan for poi_ul median
+        poi_ul = 1e-2
+        target_ts = norm.ppf(1 - 0.5 * (1 - self.cl))
+        while (ts := self.no_signal_statistic.evaluate(poi_ul)) < target_ts:
+            poi_ul *= 2
+
+        interp_ul_points = np.linspace(poi_ul / 2, poi_ul, 10)
+        interp_ts = np.array(
+            [
+                self.no_signal_statistic.evaluate(interp_ul)
+                for interp_ul in interp_ul_points
+            ]
+        ).ravel()
+
+        interpolation = interp1d(
+            interp_ul_points, interp_ts - target_ts, kind="quadratic"
+        )
+
+        poi_ul = brentq(interpolation, poi_ul / 2, poi_ul)
+        # import matplotlib.pyplot as plt
+        #
+        # plt.plot(interp_ul_points, interp_ts - target_ts, "x")
+        # plt.plot(interp_ul_points, interpolation(interp_ul_points))
+        # plt.plot(poi_ul, interpolation(poi_ul), "x")
+        # plt.show()
+
+        sigma = poi_ul / np.sqrt(ts)
+
         med_ul = self.compute_band(sigma, 0, self.cl_type)
 
         one_sig_plus = self.compute_band(sigma, 1, self.cl_type)
@@ -240,7 +239,7 @@ class ULFactory:
         if self.analysis == "3d":
             spatial_model = TemplateSpatialModel(self.jfactor, normalize=False)
 
-            bkg_model = self.measurement_dataset.background_model
+            bkg_model = self.measurement_dataset.background_model.copy()
             for channel in self.channels:
                 for mass in self.masses:
                     spectral_model = DarkMatterAnnihilationSpectralModel(

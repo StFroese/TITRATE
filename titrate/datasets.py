@@ -1,8 +1,6 @@
 import numpy as np
-from gammapy.stats import (
-    cash_sum_cython,
-)
 from gammapy.datasets import MapDataset, SpectrumDataset
+from gammapy.stats import cash_sum_cython
 
 from titrate.utils import copy_models_to_dataset
 
