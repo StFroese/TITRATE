@@ -1,4 +1,7 @@
 import numpy as np
+from gammapy.stats import (
+    cash_sum_cython,
+)
 from gammapy.datasets import MapDataset, SpectrumDataset
 
 from titrate.utils import copy_models_to_dataset
@@ -74,10 +77,10 @@ class AsimovSpectralDataset(SpectrumDataset):
             deleted_entries[key] = dataset_dict.pop(key)
 
         asimov_dataset = AsimovSpectralDataset(**dataset_dict)
-        for key in deleted_entries.keys():
-            if key == "_name":
-                continue
-            setattr(asimov_dataset, key, deleted_entries[key])
+        # for key in deleted_entries.keys():
+        #     if key == "_name":
+        #         continue
+        #     setattr(asimov_dataset, key, deleted_entries[key])
 
         copy_models_to_dataset(dataset.models, asimov_dataset)
         asimov_dataset.fake()

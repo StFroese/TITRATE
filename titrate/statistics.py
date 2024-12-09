@@ -222,8 +222,11 @@ class QTildeMuTestStatistic(TestStatistic):
         # catch the case when the test statistic is negative
         # happens when the best fit value of the POI is not the global minimum
         # of the likelihood
-        if ts < 0:
-            global_fit_valid = False
+        # if ts < 0:
+        if ts < 0 and np.isclose(ts, 0, atol=1e-03):
+            print(ts)
+            ts = np.array([0])
+            global_fit_valid = True
 
         return ts, global_fit_valid
 
@@ -293,28 +296,29 @@ class QTildeMuTestStatistic(TestStatistic):
         # )
 
         sigma = self.sigma()
-        # print(ts_val, sigma, poi_val)
-        # print(ts_val + poi_val**2 / sigma**2)
-        test = np.where(
-            ts_val > poi_val**2 / sigma**2,
-            norm.cdf((ts_val + poi_val**2 / sigma**2) / (2 * poi_val / sigma)),
-            norm.cdf(np.sqrt(ts_val)),
-        )
 
         if same:
             return np.where(
-                ts_val > poi_val**2 / sigma**2,
-                norm.cdf((ts_val + poi_val**2 / sigma**2) / (2 * poi_val / sigma)),
-                norm.cdf(np.sqrt(ts_val)),
+                ts_val == 0,
+                0.5,
+                np.where(
+                    ts_val > poi_val**2 / sigma**2,
+                    norm.cdf((ts_val + poi_val**2 / sigma**2) / (2 * poi_val / sigma)),
+                    norm.cdf(np.sqrt(ts_val)),
+                ),
             )
 
         return np.where(
-            ts_val > poi_val**2 / sigma**2,
-            norm.cdf(
-                (ts_val - (poi_val**2 - 2 * poi_val * poi_true_val) / sigma**2)
-                / (2 * poi_val / sigma)
+            ts_val == 0,
+            norm.cdf((poi_true_val - poi_val) / sigma),
+            np.where(
+                ts_val > poi_val**2 / sigma**2,
+                norm.cdf(
+                    (ts_val - (poi_val**2 - 2 * poi_val * poi_true_val) / sigma**2)
+                    / (2 * poi_val / sigma)
+                ),
+                norm.cdf(np.sqrt(ts_val) - (poi_val - poi_true_val) / sigma),
             ),
-            norm.cdf(np.sqrt(ts_val) - (poi_val - poi_true_val) / sigma),
         )
 
     def pvalue(self, poi_val, same=True, poi_true_val=None, ts_val=None):
@@ -323,6 +327,14 @@ class QTildeMuTestStatistic(TestStatistic):
             ts_val = ts_val if valid else 0
         if same:
             return 1 - self.asympotic_approximation_cdf(ts_val, poi_val)
+        # print("ts)val", ts_val)
+        # print(
+        #     "in p",
+        #     self.asympotic_approximation_cdf(
+        #         ts_val, poi_val, same=False, poi_true_val=poi_true_val
+        #     ),
+        # )
+        # print("in p2", self.sigma(), poi_val)
         return 1 - self.asympotic_approximation_cdf(
             ts_val, poi_val, same=False, poi_true_val=poi_true_val
         )
