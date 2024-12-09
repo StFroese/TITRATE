@@ -155,7 +155,7 @@ class ULCalculator:
     def expected_uls(self):
         # scan for poi_ul median
         poi_ul = 1e-2
-        target_ts = norm.ppf(1 - 0.5 * (1 - self.cl))
+        target_ts = norm.ppf(1 - 0.5 * (1 - self.cl)) ** 2
         while (ts := self.no_signal_statistic.evaluate(poi_ul)) < target_ts:
             poi_ul *= 2
 
@@ -172,14 +172,8 @@ class ULCalculator:
         )
 
         poi_ul = brentq(interpolation, poi_ul / 2, poi_ul)
-        # import matplotlib.pyplot as plt
-        #
-        # plt.plot(interp_ul_points, interp_ts - target_ts, "x")
-        # plt.plot(interp_ul_points, interpolation(interp_ul_points))
-        # plt.plot(poi_ul, interpolation(poi_ul), "x")
-        # plt.show()
 
-        sigma = poi_ul / np.sqrt(ts)
+        sigma = poi_ul / np.sqrt(target_ts)
 
         med_ul = self.compute_band(sigma, 0, self.cl_type)
 
