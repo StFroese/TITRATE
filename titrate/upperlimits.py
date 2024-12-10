@@ -233,7 +233,11 @@ class ULFactory:
         if self.analysis == "3d":
             spatial_model = TemplateSpatialModel(self.jfactor, normalize=False)
 
-            bkg_model = self.measurement_dataset.background_model.copy()
+            if self.measurement_dataset.background_model:
+                bkg_model = self.measurement_dataset.background_model.copy()
+            else:
+                bkg_model = FoVBackgroundModel(dataset_name="foo")
+
             for channel in self.channels:
                 for mass in self.masses:
                     spectral_model = DarkMatterAnnihilationSpectralModel(
@@ -247,8 +251,11 @@ class ULFactory:
                     models.append(Models([sky_model, bkg_model]))
 
         elif self.analysis == "1d":
-            bkg_model = FoVBackgroundModel(dataset_name="foo")
-            # bkg_model = self.measurement_dataset.background_model
+            if self.measurement_dataset.background_model:
+                bkg_model = self.measurement_dataset.background_model.copy()
+            else:
+                bkg_model = FoVBackgroundModel(dataset_name="foo")
+
             for channel in self.channels:
                 for mass in self.masses:
                     spectral_model = DarkMatterAnnihilationSpectralModel(
