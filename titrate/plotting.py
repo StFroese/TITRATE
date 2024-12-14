@@ -96,32 +96,30 @@ class UpperLimitPlotter:
         two_sigma_plus,
     ):
         if uls is not None:
-            self.ax.plot(masses, uls, color="tab:orange", label="Upper Limits")
+            self.ax.plot(masses, uls, color="C1", label="Upper Limits")
         if median is not None:
-            self.ax.plot(
-                masses, median, color="tab:blue", label="Expected Upper Limits"
-            )
+            self.ax.plot(masses, median, color="C0", label="Expected Upper Limits")
             self.ax.fill_between(
                 masses,
                 median,
                 one_sigma_plus,
-                color="tab:blue",
+                color="C0",
                 alpha=0.75,
                 label=r"$1\sigma$-region",
             )
             self.ax.fill_between(
-                masses, median, one_sigma_minus, color="tab:blue", alpha=0.75
+                masses, median, one_sigma_minus, color="C0", alpha=0.75
             )
             self.ax.fill_between(
                 masses,
                 one_sigma_plus,
                 two_sigma_plus,
-                color="tab:blue",
+                color="C0",
                 alpha=0.5,
                 label=r"$2\sigma$-region",
             )
             self.ax.fill_between(
-                masses, one_sigma_minus, two_sigma_minus, color="tab:blue", alpha=0.5
+                masses, one_sigma_minus, two_sigma_minus, color="C0", alpha=0.5
             )
 
 
@@ -208,7 +206,7 @@ class ValidationPlotter:
             bins=bins,
             density=True,
             histtype="step",
-            color="tab:blue",
+            color="C0",
             label=(
                 rf"$f({statistic_math_name}\vert\mu^\prime)$, "
                 r"$\mu=1$, $\mu^\prime=0$"
@@ -219,7 +217,7 @@ class ValidationPlotter:
             bins=bins,
             density=True,
             histtype="step",
-            color="tab:orange",
+            color="C1",
             label=(
                 rf"$f({statistic_math_name}\vert\mu^\prime)$, "
                 r"$\mu=1$, $\mu^\prime=1$"
@@ -231,13 +229,13 @@ class ValidationPlotter:
             statistic.asympotic_approximation_pdf(
                 poi_val=1, same=False, poi_true_val=0, ts_val=linspace
             ),
-            color="tab:blue",
+            color="C0",
             label=rf"$f({statistic_math_name}\vert\mu^\prime)$, asympotic",
         )
         plt.plot(
             linspace,
             statistic.asympotic_approximation_pdf(poi_val=1, ts_val=linspace),
-            color="tab:orange",
+            color="C1",
             alpha=0.3,
             label=rf"$f({statistic_math_name}\vert\mu^\prime)$, asympotic",
         )
