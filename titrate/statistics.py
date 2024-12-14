@@ -267,7 +267,8 @@ class QTildeMuTestStatistic(TestStatistic):
             / (np.sqrt(2 * np.pi) * 2 * poi_val / sigma)
             * np.exp(
                 -0.5
-                * (ts_val - (poi_val**2 - 2 * poi_val * poi_true_val) / sigma**2) ** 2
+                * (ts_val - (poi_val**2 - 2 * poi_val * poi_true_val) / sigma**2)
+                ** 2
                 / (2 * poi_val / sigma) ** 2
             ),
             1

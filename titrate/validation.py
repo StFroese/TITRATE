@@ -7,10 +7,11 @@ from astropy.table import QTable
 from astropy.units import Quantity
 from gammapy.astro.darkmatter import DarkMatterAnnihilationSpectralModel
 from gammapy.modeling.models import SkyModel
+from gammapy.modeling import Fit
 
 from titrate.datasets import AsimovMapDataset, AsimovSpectralDataset
 from titrate.statistics import QMuTestStatistic, QTildeMuTestStatistic, kstest
-from titrate.utils import calc_ts_toyMC
+from titrate.utils import calc_ts_toyMC, copy_dataset_with_models
 
 STATISTICS = {"qmu": QMuTestStatistic, "qtildemu": QTildeMuTestStatistic}
 
@@ -33,16 +34,33 @@ class AsymptoticValidator:
             )
         self.statistic_key = statistic
         self.statistic = STATISTICS[statistic]
+        self.poi_name = poi_name
 
         self.measurement_dataset = measurement_dataset
+        self.d_sig = copy_dataset_with_models(self.measurement_dataset)
+        self.d_sig.models.parameters[self.poi_name].value = 1
+        self.d_sig.models.parameters[self.poi_name].frozen = True
+        fit = Fit()
+        _ = fit.run(self.d_sig)
+        self.d_sig.models.parameters[self.poi_name].frozen = False
+
+        self.d_bkg = copy_dataset_with_models(self.measurement_dataset)
+        self.d_bkg.models.parameters[self.poi_name].value = 0
+        self.d_bkg.models.parameters[self.poi_name].frozen = True
+        fit = Fit()
+        _ = fit.run(self.d_bkg)
+        self.d_bkg.models.parameters[self.poi_name].frozen = False
+
         self.analysis = analysis
         if self.analysis == "3d":
-            self.asimov_dataset = AsimovMapDataset.from_MapDataset(
-                self.measurement_dataset
-            )
+            self.asimov_sig_dataset = AsimovMapDataset.from_MapDataset(self.d_sig)
+            self.asimov_bkg_dataset = AsimovMapDataset.from_MapDataset(self.d_bkg)
         elif self.analysis == "1d":
-            self.asimov_dataset = AsimovSpectralDataset.from_SpectralDataset(
-                self.measurement_dataset
+            self.asimov_sig_dataset = AsimovSpectralDataset.from_SpectralDataset(
+                self.d_sig
+            )
+            self.asimov_bkg_dataset = AsimovSpectralDataset.from_SpectralDataset(
+                self.d_bkg
             )
 
         self.path = path
@@ -63,7 +81,6 @@ class AsymptoticValidator:
             masses = [Quantity(m) for m in masses if "meta" not in m]
             raise ValueError(f"Mass must be one of {masses}")
 
-        self.poi_name = poi_name
         self.max_workers = max_workers
 
         self.toys_ts_diff = None
@@ -74,16 +91,17 @@ class AsymptoticValidator:
     def validate(self, n_toys=1000):
         self.generate_datasets(n_toys)
 
-        stat = self.statistic(self.asimov_dataset, self.poi_name)
+        stat_sig = self.statistic(self.asimov_sig_dataset, self.poi_name)
+        stat_bkg = self.statistic(self.asimov_bkg_dataset, self.poi_name)
         ks_diff = kstest(
             self.toys_ts_diff[self.toys_ts_diff_valid],
-            lambda x: stat.asympotic_approximation_cdf(
+            lambda x: stat_bkg.asympotic_approximation_cdf(
                 poi_val=1, same=False, poi_true_val=0, ts_val=x
             ),
         )
         ks_same = kstest(
             self.toys_ts_same[self.toys_ts_same_valid],
-            lambda x: stat.asympotic_approximation_cdf(poi_val=1, ts_val=x),
+            lambda x: stat_sig.asympotic_approximation_cdf(poi_val=1, ts_val=x),
         )
 
         valid = ks_diff > 0.05 and ks_same > 0.05

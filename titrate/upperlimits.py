@@ -114,35 +114,14 @@ class ULCalculator:
         pval_bkg = 0
         if self.statistic.__class__.__name__ == "QTildeMuTestStatistic":
             ts_val = self.statistic.evaluate(poi_ul)  # ts_val on measurement_dataset
-            #
-            # # find best NPs for proposed poi_ul on measurement_dataset
-            # d = copy_dataset_with_models(self.measurement_dataset)
-            # d.models.parameters[self.poi_name].value = poi_ul
-            # d.models.parameters[self.poi_name].frozen = True
-            # fit = Fit()
-            # fit.run(d)
-            # d.models.parameters[self.poi_name].frozen = False
-            #
-            # if self.analysis == "3d":
-            #     asimov_dataset = AsimovMapDataset.from_MapDataset(d)
-            # elif self.analysis == "1d":
-            #     asimov_dataset = AsimovSpectralDataset.from_SpectralDataset(d)
-            #
-            # statistic = STATISTICS[self.stat_class_name](
-            #     asimov_dataset, poi_name=self.poi_name
-            # )
-
-            # pval_sig_bkg = statistic.pvalue(poi_ul, ts_val=ts_val)
 
             if cl_type == "s":
-                # pval_bkg = 1 - self.no_signal_statistic.pvalue(
-                #     poi_val=poi_ul, ts_val=ts_val, same=False, poi_true_val=0
-                # )
-
                 ts_val_bkg_asi = self.no_signal_statistic.evaluate(poi_ul)
                 return (1 - norm.cdf(np.sqrt(ts_val))) / norm.cdf(
                     np.sqrt(ts_val_bkg_asi) - np.sqrt(ts_val)
                 )
+            else:
+                return 1 - norm.cdf(np.sqrt(ts_val))
 
         else:
             pval_sig_bkg = self.statistic.pvalue(poi_ul)
