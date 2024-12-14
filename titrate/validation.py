@@ -6,8 +6,8 @@ import numpy as np
 from astropy.table import QTable
 from astropy.units import Quantity
 from gammapy.astro.darkmatter import DarkMatterAnnihilationSpectralModel
-from gammapy.modeling.models import SkyModel
 from gammapy.modeling import Fit
+from gammapy.modeling.models import SkyModel
 
 from titrate.datasets import AsimovMapDataset, AsimovSpectralDataset
 from titrate.statistics import QMuTestStatistic, QTildeMuTestStatistic, kstest

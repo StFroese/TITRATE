@@ -133,8 +133,12 @@ class ULCalculator:
 
     def expected_uls(self):
         # scan for poi_ul median
+        if self.cl_type == "s+b":
+            target_ts = norm.ppf(1 - (1 - self.cl)) ** 2
+        if self.cl_type == "s":
+            target_ts = norm.ppf(1 - 0.5 * (1 - self.cl)) ** 2
+
         poi_ul = 1e-2
-        target_ts = norm.ppf(1 - 0.5 * (1 - self.cl)) ** 2
         while (ts := self.no_signal_statistic.evaluate(poi_ul)) < target_ts:
             poi_ul *= 2
 
@@ -170,7 +174,7 @@ class ULCalculator:
 
     def compute_band(self, sigma, n_sigma, cl_type):
         if cl_type == "s+b":
-            return sigma * (norm.ppf(self.cl) + n_sigma)
+            return sigma * (norm.ppf(1 - (1 - self.cl)) + n_sigma)
         elif cl_type == "s":
             return sigma * (norm.ppf(1 - (1 - self.cl) * norm.cdf(n_sigma)) + n_sigma)
 
