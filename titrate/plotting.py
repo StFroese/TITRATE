@@ -193,7 +193,7 @@ class ValidationPlotter:
         self.ax.set_yscale("log")
         self.ax.set_xlim(0, max_ts)
 
-        self.ax.set_ylabel("pdf")
+        self.ax.set_ylabel(r"$f(\tilde{q}_\mu\vert\mu^\prime,\theta_{\mu,\text{obs}})$")
         self.ax.set_xlabel(rf"${statistic_math_name}$")
         self.ax.set_title(statistic.__class__.__name__)
         self.ax.legend()
@@ -207,10 +207,7 @@ class ValidationPlotter:
             density=True,
             histtype="step",
             color="C0",
-            label=(
-                rf"$f({statistic_math_name}\vert\mu^\prime)$, "
-                r"$\mu=1$, $\mu^\prime=0$"
-            ),
+            label=(r"$\mu=1$, $\mu^\prime=0$"),
         )
         plt.hist(
             toys_ts_same,
@@ -218,10 +215,7 @@ class ValidationPlotter:
             density=True,
             histtype="step",
             color="C1",
-            label=(
-                rf"$f({statistic_math_name}\vert\mu^\prime)$, "
-                r"$\mu=1$, $\mu^\prime=1$"
-            ),
+            label=(r"$\mu=1$, $\mu^\prime=1$"),
         )
 
         plt.plot(
@@ -230,12 +224,12 @@ class ValidationPlotter:
                 poi_val=1, same=False, poi_true_val=0, ts_val=linspace
             ),
             color="C0",
-            label=rf"$f({statistic_math_name}\vert\mu^\prime)$, asympotic",
+            label=r"$\mu=1$, $\mu^\prime=0$",
         )
         plt.plot(
             linspace,
             statistic.asympotic_approximation_pdf(poi_val=1, ts_val=linspace),
             color="C1",
-            alpha=0.3,
-            label=rf"$f({statistic_math_name}\vert\mu^\prime)$, asympotic",
+            ls="--",
+            label=r"$\mu=1$, $\mu^\prime=1$",
         )
