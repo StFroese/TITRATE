@@ -237,7 +237,7 @@ class QTildeMuTestStatistic(TestStatistic):
         return pois
 
     def sigma(self, poi_val, poi_true_val):
-        if poi_val == 0:
+        if poi_val == 0 or poi_true_val is None:
             return np.sqrt(self.fit_result.covariance_result.matrix[0, 0])
 
         ts = self.evaluate(poi_val)
@@ -267,8 +267,7 @@ class QTildeMuTestStatistic(TestStatistic):
             / (np.sqrt(2 * np.pi) * 2 * poi_val / sigma)
             * np.exp(
                 -0.5
-                * (ts_val - (poi_val**2 - 2 * poi_val * poi_true_val) / sigma**2)
-                ** 2
+                * (ts_val - (poi_val**2 - 2 * poi_val * poi_true_val) / sigma**2) ** 2
                 / (2 * poi_val / sigma) ** 2
             ),
             1
