@@ -139,8 +139,8 @@ class AsymptoticValidator:
                 )
                 for _ in range(n_toys)
             ]
-            toys_ts = [future.result()[0] for future in futures]
-            toys_valid = [future.result()[1] for future in futures]
+            toys_ts = [future.result() for future in futures]
+            toys_valid = [True for _ in range(len(toys_ts))]
 
         # to ndarray
         toys_ts = np.array(toys_ts).ravel()
