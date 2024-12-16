@@ -93,16 +93,19 @@ class AsymptoticValidator:
 
         stat_sig = self.statistic(self.asimov_sig_dataset, self.poi_name)
         stat_bkg = self.statistic(self.asimov_bkg_dataset, self.poi_name)
+        from scipy.stats import ks_1samp as kstest
+
         ks_diff = kstest(
             self.toys_ts_diff[self.toys_ts_diff_valid],
             lambda x: stat_bkg.asympotic_approximation_cdf(
                 poi_val=1e5, same=False, poi_true_val=0, ts_val=x
             ),
-        )
+        ).pvalue
         ks_same = kstest(
             self.toys_ts_same[self.toys_ts_same_valid],
             lambda x: stat_sig.asympotic_approximation_cdf(poi_val=1e5, ts_val=x),
-        )
+        ).pvalue
+        print(ks_diff, ks_same)
 
         valid = ks_diff > 0.05 and ks_same > 0.05
 

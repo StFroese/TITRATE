@@ -248,65 +248,14 @@ class QTildeMuTestStatistic(TestStatistic):
     def asympotic_approximation_pdf(
         self, ts_val, poi_val, same=True, poi_true_val=None
     ):
-        if same:
-            nc = 0
-        else:
-            sigma = self.sigma(poi_val, poi_true_val)
-            nc = (poi_val - poi_true_val) ** 2 / sigma**2
+        nc = self.evaluate(poi_val)
         return ncx2.pdf(ts_val, nc=nc, df=1)
-
-        if same:
-            return np.where(
-                ts_val > poi_val**2 / sigma**2,
-                1
-                / (np.sqrt(2 * np.pi) * 2 * poi_val / sigma)
-                * np.exp(
-                    -0.5
-                    * (ts_val + poi_val**2 / sigma**2) ** 2
-                    / (2 * poi_val / sigma) ** 2
-                ),
-                1 / (2 * np.sqrt(2 * np.pi * ts_val)) * np.exp(-0.5 * ts_val),
-            )
-
-        return np.where(
-            ts_val > poi_val**2 / sigma**2,
-            1
-            / (np.sqrt(2 * np.pi) * 2 * poi_val / sigma)
-            * np.exp(
-                -0.5
-                * (ts_val - (poi_val**2 - 2 * poi_val * poi_true_val) / sigma**2) ** 2
-                / (2 * poi_val / sigma) ** 2
-            ),
-            1
-            / (2 * np.sqrt(2 * np.pi * ts_val))
-            * np.exp(-0.5 * (np.sqrt(ts_val) - (poi_val - poi_true_val) / sigma) ** 2),
-        )
 
     def asympotic_approximation_cdf(
         self, ts_val, poi_val, same=True, poi_true_val=None
     ):
-        if same:
-            nc = 0
-        else:
-            sigma = self.sigma(poi_val, poi_true_val)
-            nc = (poi_val - poi_true_val) / sigma
+        nc = self.evaluate(poi_val)
         return ncx2.cdf(ts_val, nc=nc, df=1)
-        sigma = self.sigma(poi_val, poi_true_val, same=True)
-
-        if same:
-            return np.where(
-                ts_val > poi_val**2 / sigma**2,
-                norm.cdf((ts_val + poi_val**2 / sigma**2) / (2 * poi_val / sigma)),
-                norm.cdf(np.sqrt(ts_val)),
-            )
-        return np.where(
-            ts_val > poi_val**2 / sigma**2,
-            norm.cdf(
-                (ts_val - (poi_val**2 - 2 * poi_val * poi_true_val) / sigma**2)
-                / (2 * poi_val / sigma)
-            ),
-            norm.cdf(np.sqrt(ts_val) - (poi_val - poi_true_val) / sigma),
-        )
 
     def pvalue(self, poi_val, same=True, poi_true_val=None, ts_val=None):
         if ts_val is None:

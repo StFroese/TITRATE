@@ -261,6 +261,7 @@ class ValidationPlotter:
                 poi_val=1e5, same=False, poi_true_val=0, ts_val=linspace
             ),
             color="C0",
+            ls="--",
             label=r"$\mu=10^5$, $\mu^\prime=0$",
         )
         plt.plot(
