@@ -1,4 +1,5 @@
 import abc
+from scipy.stats import ncx2
 
 import numpy as np
 from gammapy.modeling import Fit
@@ -236,9 +237,11 @@ class QTildeMuTestStatistic(TestStatistic):
                 pois.append(parameter.name)
         return pois
 
-    def sigma(self, poi_val, poi_true_val):
-        if poi_val == 0 or poi_true_val is None:
+    def sigma(self, poi_val, poi_true_val, same=False):
+        if poi_val == 0:
             return np.sqrt(self.fit_result.covariance_result.matrix[0, 0])
+        if same:
+            return 0
 
         ts = self.evaluate(poi_val)
         return (poi_val - poi_true_val) / np.sqrt(ts)
@@ -246,7 +249,12 @@ class QTildeMuTestStatistic(TestStatistic):
     def asympotic_approximation_pdf(
         self, ts_val, poi_val, same=True, poi_true_val=None
     ):
-        sigma = self.sigma(poi_val, poi_true_val)
+        if same:
+            nc = 0
+        else:
+            sigma = self.sigma(poi_val, poi_true_val)
+            nc = (poi_val - poi_true_val) / sigma
+        return ncx2.pdf(ts_val, nc=nc, df=1)
 
         if same:
             return np.where(
@@ -278,7 +286,13 @@ class QTildeMuTestStatistic(TestStatistic):
     def asympotic_approximation_cdf(
         self, ts_val, poi_val, same=True, poi_true_val=None
     ):
-        sigma = self.sigma(poi_val, poi_true_val)
+        if same:
+            nc = 0
+        else:
+            sigma = self.sigma(poi_val, poi_true_val)
+            nc = (poi_val - poi_true_val) / sigma
+        return ncx2.cdf(ts_val, nc=nc, df=1)
+        sigma = self.sigma(poi_val, poi_true_val, same=True)
 
         if same:
             return np.where(
@@ -286,9 +300,6 @@ class QTildeMuTestStatistic(TestStatistic):
                 norm.cdf((ts_val + poi_val**2 / sigma**2) / (2 * poi_val / sigma)),
                 norm.cdf(np.sqrt(ts_val)),
             )
-        print(poi_val**2 / sigma**2, poi_val, sigma)
-        if sigma == 0:
-            print(self.dataset)
         return np.where(
             ts_val > poi_val**2 / sigma**2,
             norm.cdf(
