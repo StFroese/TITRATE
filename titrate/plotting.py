@@ -4,9 +4,12 @@ import numpy as np
 from astropy import visualization as viz
 from astropy.table import QTable, unique
 from astropy.units import Quantity
+from gammapy.modeling import Fit
 
 from titrate.datasets import AsimovMapDataset, AsimovSpectralDataset
 from titrate.statistics import QMuTestStatistic, QTildeMuTestStatistic
+from titrate.utils import copy_dataset_with_models
+
 
 STATISTICS = {"qmu": QMuTestStatistic, "qtildemu": QTildeMuTestStatistic}
 
@@ -138,12 +141,32 @@ class ValidationPlotter:
         self.path = path
         self.ax = ax if ax is not None else plt.gca()
         self.analysis = analysis
+        self.measurement_dataset = measurement_dataset
+        self.poi_name = poi_name
+
+        self.d_sig = copy_dataset_with_models(self.measurement_dataset)
+        self.d_sig.models.parameters[self.poi_name].value = 1e5
+        self.d_sig.models.parameters[self.poi_name].frozen = True
+        fit = Fit()
+        _ = fit.run(self.d_sig)
+        self.d_sig.models.parameters[self.poi_name].frozen = False
+
+        self.d_bkg = copy_dataset_with_models(self.measurement_dataset)
+        self.d_bkg.models.parameters[self.poi_name].value = 0
+        self.d_bkg.models.parameters[self.poi_name].frozen = True
+        fit = Fit()
+        _ = fit.run(self.d_bkg)
+        self.d_bkg.models.parameters[self.poi_name].frozen = False
 
         if self.analysis == "3d":
-            asimov_dataset = AsimovMapDataset.from_MapDataset(measurement_dataset)
+            self.asimov_sig_dataset = AsimovMapDataset.from_MapDataset(self.d_sig)
+            self.asimov_bkg_dataset = AsimovMapDataset.from_MapDataset(self.d_bkg)
         elif self.analysis == "1d":
-            asimov_dataset = AsimovSpectralDataset.from_SpectralDataset(
-                measurement_dataset
+            self.asimov_sig_dataset = AsimovSpectralDataset.from_SpectralDataset(
+                self.d_sig
+            )
+            self.asimov_bkg_dataset = AsimovSpectralDataset.from_SpectralDataset(
+                self.d_bkg
             )
 
         try:
@@ -181,13 +204,20 @@ class ValidationPlotter:
         max_ts = max(toys_ts_diff.max(), toys_ts_same.max())
         bins = np.linspace(0, max_ts, 31)
         linspace = np.linspace(0, max_ts, 1000)
-        statistic = STATISTICS[statistic](asimov_dataset, poi_name)
+        statistic_sig = STATISTICS[statistic](self.asimov_sig_dataset, poi_name)
+        statistic_bkg = STATISTICS[statistic](self.asimov_bkg_dataset, poi_name)
         statistic_math_name = (
             r"q_\mu" if isinstance(statistic, QMuTestStatistic) else r"\tilde{q}_\mu"
         )
 
         self.plot(
-            linspace, bins, toys_ts_same, toys_ts_diff, statistic, statistic_math_name
+            linspace,
+            bins,
+            toys_ts_same,
+            toys_ts_diff,
+            statistic_sig,
+            statistic_bkg,
+            statistic_math_name,
         )
 
         self.ax.set_yscale("log")
@@ -199,7 +229,14 @@ class ValidationPlotter:
         self.ax.legend()
 
     def plot(
-        self, linspace, bins, toys_ts_same, toys_ts_diff, statistic, statistic_math_name
+        self,
+        linspace,
+        bins,
+        toys_ts_same,
+        toys_ts_diff,
+        statistic_sig,
+        statistic_bkg,
+        statistic_math_name,
     ):
         plt.hist(
             toys_ts_diff,
@@ -207,7 +244,7 @@ class ValidationPlotter:
             density=True,
             histtype="step",
             color="C0",
-            label=(r"$\mu=1$, $\mu^\prime=0$"),
+            label=(r"$\mu=10^5$, $\mu^\prime=0$"),
         )
         plt.hist(
             toys_ts_same,
@@ -215,21 +252,21 @@ class ValidationPlotter:
             density=True,
             histtype="step",
             color="C1",
-            label=(r"$\mu=1$, $\mu^\prime=1$"),
+            label=(r"$\mu=10^5$, $\mu^\prime=10^5$"),
         )
 
         plt.plot(
             linspace,
-            statistic.asympotic_approximation_pdf(
-                poi_val=1, same=False, poi_true_val=0, ts_val=linspace
+            statistic_bkg.asympotic_approximation_pdf(
+                poi_val=1e5, same=False, poi_true_val=0, ts_val=linspace
             ),
             color="C0",
-            label=r"$\mu=1$, $\mu^\prime=0$",
+            label=r"$\mu=10^5$, $\mu^\prime=0$",
         )
         plt.plot(
             linspace,
-            statistic.asympotic_approximation_pdf(poi_val=1, ts_val=linspace),
+            statistic_sig.asympotic_approximation_pdf(poi_val=1e5, ts_val=linspace),
             color="C1",
             ls="--",
-            label=r"$\mu=1$, $\mu^\prime=1$",
+            label=r"$\mu=10^5$, $\mu^\prime=10^5$",
         )

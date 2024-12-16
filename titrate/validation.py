@@ -38,7 +38,7 @@ class AsymptoticValidator:
 
         self.measurement_dataset = measurement_dataset
         self.d_sig = copy_dataset_with_models(self.measurement_dataset)
-        self.d_sig.models.parameters[self.poi_name].value = 1
+        self.d_sig.models.parameters[self.poi_name].value = 1e5
         self.d_sig.models.parameters[self.poi_name].frozen = True
         fit = Fit()
         _ = fit.run(self.d_sig)
@@ -96,12 +96,12 @@ class AsymptoticValidator:
         ks_diff = kstest(
             self.toys_ts_diff[self.toys_ts_diff_valid],
             lambda x: stat_bkg.asympotic_approximation_cdf(
-                poi_val=1, same=False, poi_true_val=0, ts_val=x
+                poi_val=1e5, same=False, poi_true_val=0, ts_val=x
             ),
         )
         ks_same = kstest(
             self.toys_ts_same[self.toys_ts_same_valid],
-            lambda x: stat_sig.asympotic_approximation_cdf(poi_val=1, ts_val=x),
+            lambda x: stat_sig.asympotic_approximation_cdf(poi_val=1e5, ts_val=x),
         )
 
         valid = ks_diff > 0.05 and ks_same > 0.05
@@ -110,8 +110,10 @@ class AsymptoticValidator:
 
     def generate_datasets(self, n_toys):
         if self.path is None:
-            toys_ts_diff, toys_ts_diff_valid = self.toys_ts(n_toys, 1, 0)
-            toys_ts_same, toys_ts_same_valid = self.toys_ts(n_toys, 1, 1)
+            toys_ts_diff, toys_ts_diff_valid = self.toys_ts(n_toys, 1e5, 0, self.d_bkg)
+            toys_ts_same, toys_ts_same_valid = self.toys_ts(
+                n_toys, 1e5, 1e5, self.d_sig
+            )
         else:
             (
                 toys_ts_diff,
@@ -126,12 +128,12 @@ class AsymptoticValidator:
         self.toys_ts_same_valid = toys_ts_same_valid
 
     @lru_cache
-    def toys_ts(self, n_toys, poi_val, poi_true_val):
+    def toys_ts(self, n_toys, poi_val, poi_true_val, dataset):
         with ProcessPoolExecutor(self.max_workers) as pool:
             futures = [
                 pool.submit(
                     calc_ts_toyMC,
-                    self.measurement_dataset,
+                    dataset,
                     self.statistic,
                     poi_val,
                     poi_true_val,

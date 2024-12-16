@@ -1,9 +1,8 @@
 import abc
-from scipy.stats import ncx2
 
 import numpy as np
 from gammapy.modeling import Fit
-from scipy.stats import kstwo, norm
+from scipy.stats import kstwo, ncx2, norm
 
 from titrate.datasets import AsimovMapDataset, AsimovSpectralDataset
 
@@ -253,7 +252,7 @@ class QTildeMuTestStatistic(TestStatistic):
             nc = 0
         else:
             sigma = self.sigma(poi_val, poi_true_val)
-            nc = (poi_val - poi_true_val) / sigma
+            nc = (poi_val - poi_true_val) ** 2 / sigma**2
         return ncx2.pdf(ts_val, nc=nc, df=1)
 
         if same:
