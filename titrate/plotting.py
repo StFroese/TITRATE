@@ -139,7 +139,7 @@ class ValidationPlotter:
         analysis="3d",
     ):
         self.path = path
-        self.ax = ax if ax is not None else plt.gca()
+        # self.ax = ax if ax is not None else plt.gca()
         self.analysis = analysis
         self.measurement_dataset = measurement_dataset
         self.poi_name = poi_name
@@ -169,28 +169,29 @@ class ValidationPlotter:
                 self.d_bkg
             )
 
-        try:
-            table_diff = QTable.read(
-                self.path, path=f"validation/{statistic}/diff/{channel}/{mass}"
-            )
-            table_same = QTable.read(
-                self.path, path=f"validation/{statistic}/same/{channel}/{mass}"
-            )
-        except OSError:
-            if channel is None:
-                channels = list(
-                    h5py.File(self.path)["validation"][statistic]["diff"].keys()
-                )
-                channels = [ch for ch in channels if "meta" not in ch]
-                raise ValueError(f"Channel must be one of {channels}")
-            if mass is None:
-                masses = list(
-                    h5py.File(self.path)["validation"][statistic]["diff"][
-                        channel
-                    ].keys()
-                )
-                masses = [Quantity(m) for m in masses if "meta" not in m]
-                raise ValueError(f"Mass must be one of {masses}")
+        print(statistic, channel, mass)
+
+        table_diff = QTable.read(
+            self.path, path=f"validation/{statistic}/diff/{channel}/{mass}"
+        )
+        table_same = QTable.read(
+            self.path, path=f"validation/{statistic}/same/{channel}/{mass}"
+        )
+        # except OSError:
+        #     if channel is None:
+        #         channels = list(
+        #             h5py.File(self.path)["validation"][statistic]["diff"].keys()
+        #         )
+        #         channels = [ch for ch in channels if "meta" not in ch]
+        #         raise ValueError(f"Channel must be one of {channels}")
+        #     if mass is None:
+        #         masses = list(
+        #             h5py.File(self.path)["validation"][statistic]["diff"][
+        #                 channel
+        #             ].keys()
+        #         )
+        #         masses = [Quantity(m) for m in masses if "meta" not in m]
+        #         raise ValueError(f"Mass must be one of {masses}")
 
         toys_ts_diff = table_diff["ts"]
         toys_ts_diff_valid = table_diff["valid"]
@@ -202,72 +203,94 @@ class ValidationPlotter:
         toys_ts_same = toys_ts_same[toys_ts_same_valid]
 
         max_ts = max(toys_ts_diff.max(), toys_ts_same.max())
-        bins = np.linspace(0, max_ts, 31)
-        linspace = np.linspace(0, max_ts, 1000)
+        bins_same = np.linspace(0, toys_ts_same.max(), 31)
+        bins_diff = np.linspace(0, toys_ts_diff.max(), 31)
+        linspace_same = np.linspace(0, bins_same[-1], 1000)
+        linspace_diff = np.linspace(0, bins_diff[-1], 1000)
         statistic_sig = STATISTICS[statistic](self.asimov_sig_dataset, poi_name)
         statistic_bkg = STATISTICS[statistic](self.asimov_bkg_dataset, poi_name)
         statistic_math_name = (
             r"q_\mu" if isinstance(statistic, QMuTestStatistic) else r"\tilde{q}_\mu"
         )
 
+        fig, axs = plt.subplot_mosaic([["same"], ["diff"]])
+
         self.plot(
-            linspace,
-            bins,
+            linspace_same,
+            linspace_diff,
+            bins_same,
+            bins_diff,
             toys_ts_same,
             toys_ts_diff,
             statistic_sig,
             statistic_bkg,
-            statistic_math_name,
+            axs,
         )
 
-        self.ax.set_yscale("log")
-        self.ax.set_xlim(0, max_ts)
+        for ax in axs:
+            axs[ax].set_yscale("log")
+            axs[ax].set_xlim(
+                0,
+            )
 
-        self.ax.set_ylabel(r"$f(\tilde{q}_\mu\vert\mu^\prime,\theta_{\mu,\text{obs}})$")
-        self.ax.set_xlabel(rf"${statistic_math_name}$")
-        self.ax.set_title(statistic.__class__.__name__)
-        self.ax.legend()
+            if ax == "same":
+                axs[ax].set_ylabel(
+                    r"$f(\tilde{q}_\mu\vert\mu^\prime,\theta_{\mu,\text{obs}})$ \\ $\mu=10^5$, $\mu^\prime=10^5$"
+                )
+            else:
+                axs[ax].set_ylabel(
+                    r"$f(\tilde{q}_\mu\vert\mu^\prime,\theta_{\mu,\text{obs}})$ \\ $\mu=10^5$, $\mu^\prime=0$"
+                )
+            axs[ax].set_xlabel(rf"${statistic_math_name}$")
+            axs[ax].set_title(statistic.__class__.__name__)
+            axs[ax].legend()
+        self.fig = fig
+        self.axs = axs
 
     def plot(
         self,
-        linspace,
-        bins,
+        linspace_same,
+        linspace_diff,
+        bins_same,
+        bins_diff,
         toys_ts_same,
         toys_ts_diff,
         statistic_sig,
         statistic_bkg,
-        statistic_math_name,
+        axs,
     ):
-        plt.hist(
+        axs["diff"].hist(
             toys_ts_diff,
-            bins=bins,
+            bins=bins_diff,
             density=True,
             histtype="step",
             color="C0",
-            label=(r"$\mu=10^5$, $\mu^\prime=0$"),
+            label=(r"MC"),
         )
-        plt.hist(
+        axs["same"].hist(
             toys_ts_same,
-            bins=bins,
+            bins=bins_same,
             density=True,
             histtype="step",
             color="C1",
-            label=(r"$\mu=10^5$, $\mu^\prime=10^5$"),
+            label=(r"MC"),
         )
 
-        plt.plot(
-            linspace,
+        axs["diff"].plot(
+            linspace_diff,
             statistic_bkg.asympotic_approximation_pdf(
-                poi_val=1e5, same=False, poi_true_val=0, ts_val=linspace
+                poi_val=1e5, same=False, poi_true_val=0, ts_val=linspace_diff
             ),
             color="C0",
             ls="--",
-            label=r"$\mu=10^5$, $\mu^\prime=0$",
+            label=r"Asymptotic",
         )
-        plt.plot(
-            linspace,
-            statistic_sig.asympotic_approximation_pdf(poi_val=1e5, ts_val=linspace),
+        axs["same"].plot(
+            linspace_same,
+            statistic_sig.asympotic_approximation_pdf(
+                poi_val=1e5, ts_val=linspace_same
+            ),
             color="C1",
             ls="--",
-            label=r"$\mu=10^5$, $\mu^\prime=10^5$",
+            label=r"Asymptotic",
         )
