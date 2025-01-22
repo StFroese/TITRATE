@@ -188,8 +188,8 @@ class ValidationPlotter:
         max_ts = max(toys_ts_diff.max(), toys_ts_same.max())
         bins_same = np.linspace(0, toys_ts_same.max(), 31)
         bins_diff = np.linspace(0, toys_ts_diff.max(), 31)
-        linspace_same = np.linspace(0, bins_same[-1], 1000)
-        linspace_diff = np.linspace(0, bins_diff[-1], 1000)
+        linspace_same = np.linspace(1e-3, bins_same[-1], 1000)
+        linspace_diff = np.linspace(1e-3, bins_diff[-1], 1000)
         statistic_sig = STATISTICS[statistic](self.asimov_sig_dataset, poi_name)
         statistic_bkg = STATISTICS[statistic](self.asimov_bkg_dataset, poi_name)
         statistic_math_name = (
@@ -215,6 +215,7 @@ class ValidationPlotter:
             axs[ax].set_xlim(
                 0,
             )
+            axs[ax].set_ylim(1e-4, 1e2)
 
             if ax == "same":
                 axs[ax].set_ylabel(

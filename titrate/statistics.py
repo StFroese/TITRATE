@@ -253,6 +253,8 @@ class QTildeMuTestStatistic(TestStatistic):
         if same:
             sigma = np.sqrt(self.fit_result.covariance_result.matrix[0, 0])
             mu_sigma = poi_val**2 / sigma**2
+            print(mu_sigma, "same")
+            print(self.dataset, self.poi_best, self.fit_result.covariance_result.matrix)
             return np.where(
                 (ts_val > 0) & (ts_val <= mu_sigma),
                 (
@@ -273,6 +275,8 @@ class QTildeMuTestStatistic(TestStatistic):
 
         sigma = poi_val / np.sqrt(nc)
         mu_sigma = poi_val**2 / sigma**2
+        print(mu_sigma, "diff")
+        print(self.dataset, self.poi_best)
         return np.where(
             (ts_val > 0) & (ts_val <= mu_sigma),
             (
