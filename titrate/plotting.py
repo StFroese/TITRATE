@@ -10,7 +10,6 @@ from titrate.datasets import AsimovMapDataset, AsimovSpectralDataset
 from titrate.statistics import QMuTestStatistic, QTildeMuTestStatistic
 from titrate.utils import copy_dataset_with_models
 
-
 STATISTICS = {"qmu": QMuTestStatistic, "qtildemu": QTildeMuTestStatistic}
 
 
@@ -137,15 +136,17 @@ class ValidationPlotter:
         poi_name="scale",
         ax=None,
         analysis="3d",
+        poi_val=1e5,
     ):
         self.path = path
         # self.ax = ax if ax is not None else plt.gca()
         self.analysis = analysis
         self.measurement_dataset = measurement_dataset
         self.poi_name = poi_name
+        self.poi_val = poi_val
 
         self.d_sig = copy_dataset_with_models(self.measurement_dataset)
-        self.d_sig.models.parameters[self.poi_name].value = 1e5
+        self.d_sig.models.parameters[self.poi_name].value = self.poi_val
         self.d_sig.models.parameters[self.poi_name].frozen = True
         fit = Fit()
         _ = fit.run(self.d_sig)
@@ -243,6 +244,7 @@ class ValidationPlotter:
         statistic_bkg,
         axs,
     ):
+        print(self.poi_val)
         axs["diff"].hist(
             toys_ts_diff,
             bins=bins_diff,
@@ -263,7 +265,7 @@ class ValidationPlotter:
         axs["diff"].plot(
             linspace_diff,
             statistic_bkg.asympotic_approximation_pdf(
-                poi_val=1e5, same=False, poi_true_val=0, ts_val=linspace_diff
+                poi_val=self.poi_val, same=False, poi_true_val=0, ts_val=linspace_diff
             ),
             color="C0",
             ls="--",
@@ -272,7 +274,7 @@ class ValidationPlotter:
         axs["same"].plot(
             linspace_same,
             statistic_sig.asympotic_approximation_pdf(
-                poi_val=1e5, ts_val=linspace_same
+                poi_val=self.poi_val, ts_val=linspace_same
             ),
             color="C1",
             ls="--",
