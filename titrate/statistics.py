@@ -105,11 +105,6 @@ class QMuTestStatistic(TestStatistic):
         return pois
 
     def sigma(self):
-        # if not isinstance(self.dataset, AsimovMapDataset):
-        #     raise AsimovApproximationError(
-        #         "`dataset` must be an `AsimovMapDataset` in order to calculate"
-        #         " `sigma`"
-        #     )
         return np.sqrt(self.fit_result.covariance_result.matrix[0, 0])
 
     def asympotic_approximation_pdf(
@@ -122,11 +117,6 @@ class QMuTestStatistic(TestStatistic):
                 * np.exp(-0.5 * (np.sqrt(ts_val)) ** 2)
             )
 
-        # if not isinstance(self.dataset, AsimovMapDataset):
-        #     raise AsimovApproximationError(
-        #         "`dataset` must be an `AsimovMapDataset` in order to use the"
-        #         " `asympotic_approximation`"
-        #     )
         return (
             1
             / (2 * np.sqrt(2 * np.pi * ts_val))
@@ -140,12 +130,6 @@ class QMuTestStatistic(TestStatistic):
     ):
         if same:
             return norm.cdf(np.sqrt(ts_val))
-
-        # if not isinstance(self.dataset, AsimovMapDataset):
-        # raise AsimovApproximationError(
-        #     "`dataset` must be an `AsimovMapDataset` in order to use the"
-        #     " `asympotic_approximation`"
-        # )
 
         return norm.cdf(np.sqrt(ts_val) - (poi_val - poi_true_val) / self.sigma())
 
