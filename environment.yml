@@ -1,4 +1,4 @@
-name: titrate-dev-g1.2
+name: titrate-dev
 channels:
   - conda-forge
   - default
