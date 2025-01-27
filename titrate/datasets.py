@@ -56,7 +56,7 @@ class AsimovSpectralDataset(SpectrumDataset):
         npred = self.npred()
         data = np.nan_to_num(npred.data, copy=True, nan=0.0, posinf=0.0, neginf=0.0)
         npred.data = data
-        self.counts = npred.data.copy()
+        self.counts.data = npred.data.copy()
 
     @classmethod
     def from_SpectralDataset(self, dataset):

@@ -2,7 +2,7 @@ import abc
 
 import numpy as np
 from gammapy.modeling import Fit
-from scipy.stats import kstwo, ncx2, norm
+from scipy.stats import kstwo, norm
 
 from titrate.datasets import AsimovMapDataset, AsimovSpectralDataset
 
@@ -260,8 +260,6 @@ class QTildeMuTestStatistic(TestStatistic):
                     / (2 * np.sqrt(2 * np.pi) * np.sqrt(ts_val))
                     * np.exp(-0.5 * (np.sqrt(ts_val)) ** 2)
                 ),
-                #     0,
-                # )
                 (
                     1
                     / (np.sqrt(2 * np.pi) * (2 * np.sqrt(mu_sigma)))
@@ -280,8 +278,6 @@ class QTildeMuTestStatistic(TestStatistic):
                 / (2 * np.sqrt(2 * np.pi) * np.sqrt(ts_val))
                 * np.exp(-0.5 * (np.sqrt(ts_val) - np.sqrt(nc)) ** 2)
             ),
-            #     0,
-            # )
             (
                 1
                 / (np.sqrt(2 * np.pi) * (2 * np.sqrt(mu_sigma)))
@@ -293,7 +289,23 @@ class QTildeMuTestStatistic(TestStatistic):
         self, ts_val, poi_val, same=True, poi_true_val=None
     ):
         nc = self.evaluate(poi_val)
-        return ncx2.cdf(ts_val, nc=nc, df=1)
+
+        if same:
+            sigma = np.sqrt(self.fit_result.covariance_result.matrix[0, 0])
+            mu_sigma = poi_val**2 / sigma**2
+            return np.where(
+                (ts_val > 0) & (ts_val <= mu_sigma),
+                norm.cdf(np.sqrt(ts_val)),
+                norm.cdf((ts_val + mu_sigma) / (2 * np.sqrt(mu_sigma))),
+            )
+
+        sigma = poi_val / np.sqrt(nc)
+        mu_sigma = poi_val**2 / sigma**2
+        return np.where(
+            (ts_val > 0) & (ts_val <= mu_sigma),
+            norm.cdf(np.sqrt(ts_val) - np.sqrt(nc)),
+            norm.cdf((ts_val - nc) / (2 * np.sqrt(mu_sigma))),
+        )
 
     def pvalue(self, poi_val, same=True, poi_true_val=None, ts_val=None):
         if ts_val is None:
