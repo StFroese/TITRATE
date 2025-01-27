@@ -1,3 +1,6 @@
+from gammapy.datasets import Datasets
+
+
 def CopyModelError(AttributeError):
     """Something went wrong during copying a model."""
 
@@ -27,15 +30,20 @@ def copy_dataset_with_models(dataset):
 def copy_models_to_dataset(models, dataset):
     """Copies models and assigns them to dataset."""
     model_copies = models.copy()
-    for model in model_copies:
-        if hasattr(model, "_name"):
-            model._name = f"{dataset.name}-{model._name}"
-        elif hasattr(model, "datasets_names"):
-            model.datasets_names = [f"{dataset.name}"]
-        else:
-            raise CopyModelError(
-                f"{model.__class__.__name__} doesn't provided `._name`"
-                f"nor `.datasets_names`."
-            )
-
-    dataset.models = model_copies
+    if isinstance(dataset, Datasets):
+        for d in dataset:
+            b = model_copies[1].copy()
+            b.datasets_names = [d.name]
+            d.models = [model_copies[0], b]
+    else:
+        for model in model_copies:
+            if hasattr(model, "_name"):
+                model._name = f"{dataset.name}-{model._name}"
+            if hasattr(model, "datasets_names"):
+                model.datasets_names = [dataset.name]
+            else:
+                raise CopyModelError(
+                    f"{model.__class__.__name__} doesn't provided `._name`"
+                    f"nor `.datasets_names`."
+                )
+        dataset.models = model_copies

@@ -4,7 +4,7 @@ channels:
   - default
 dependencies:
   - python=3.11
-  - gammapy
+  - gammapy=1.2
   - numpy
   - scipy
   - matplotlib

@@ -3,10 +3,11 @@ import matplotlib.pyplot as plt
 import numpy as np
 from astropy import visualization as viz
 from astropy.table import QTable, unique
-from astropy.units import Quantity
+from gammapy.modeling import Fit
 
-from titrate.datasets import AsimovMapDataset
+from titrate.datasets import AsimovMapDataset, AsimovSpectralDataset
 from titrate.statistics import QMuTestStatistic, QTildeMuTestStatistic
+from titrate.utils import copy_dataset_with_models
 
 STATISTICS = {"qmu": QMuTestStatistic, "qtildemu": QTildeMuTestStatistic}
 
@@ -96,32 +97,30 @@ class UpperLimitPlotter:
         two_sigma_plus,
     ):
         if uls is not None:
-            self.ax.plot(masses, uls, color="tab:orange", label="Upper Limits")
+            self.ax.plot(masses, uls, color="C1", label="Upper Limits")
         if median is not None:
-            self.ax.plot(
-                masses, median, color="tab:blue", label="Expected Upper Limits"
-            )
+            self.ax.plot(masses, median, color="C0", label="Expected Upper Limits")
             self.ax.fill_between(
                 masses,
                 median,
                 one_sigma_plus,
-                color="tab:blue",
+                color="C0",
                 alpha=0.75,
                 label=r"$1\sigma$-region",
             )
             self.ax.fill_between(
-                masses, median, one_sigma_minus, color="tab:blue", alpha=0.75
+                masses, median, one_sigma_minus, color="C0", alpha=0.75
             )
             self.ax.fill_between(
                 masses,
                 one_sigma_plus,
                 two_sigma_plus,
-                color="tab:blue",
+                color="C0",
                 alpha=0.5,
                 label=r"$2\sigma$-region",
             )
             self.ax.fill_between(
-                masses, one_sigma_minus, two_sigma_minus, color="tab:blue", alpha=0.5
+                masses, one_sigma_minus, two_sigma_minus, color="C0", alpha=0.5
             )
 
 
@@ -135,34 +134,47 @@ class ValidationPlotter:
         statistic="qmu",
         poi_name="scale",
         ax=None,
+        analysis="3d",
+        poi_val=1e5,
     ):
         self.path = path
         self.ax = ax if ax is not None else plt.gca()
+        self.analysis = analysis
+        self.measurement_dataset = measurement_dataset
+        self.poi_name = poi_name
+        self.poi_val = poi_val
 
-        asimov_dataset = AsimovMapDataset.from_MapDataset(measurement_dataset)
+        self.d_sig = copy_dataset_with_models(self.measurement_dataset)
+        self.d_sig.models.parameters[self.poi_name].value = self.poi_val
+        self.d_sig.models.parameters[self.poi_name].frozen = True
+        fit = Fit()
+        _ = fit.run(self.d_sig)
+        self.d_sig.models.parameters[self.poi_name].frozen = False
 
-        try:
-            table_diff = QTable.read(
-                self.path, path=f"validation/{statistic}/diff/{channel}/{mass}"
+        self.d_bkg = copy_dataset_with_models(self.measurement_dataset)
+        self.d_bkg.models.parameters[self.poi_name].value = 0
+        self.d_bkg.models.parameters[self.poi_name].frozen = True
+        fit = Fit()
+        _ = fit.run(self.d_bkg)
+        self.d_bkg.models.parameters[self.poi_name].frozen = False
+
+        if self.analysis == "3d":
+            self.asimov_sig_dataset = AsimovMapDataset.from_MapDataset(self.d_sig)
+            self.asimov_bkg_dataset = AsimovMapDataset.from_MapDataset(self.d_bkg)
+        elif self.analysis == "1d":
+            self.asimov_sig_dataset = AsimovSpectralDataset.from_SpectralDataset(
+                self.d_sig
             )
-            table_same = QTable.read(
-                self.path, path=f"validation/{statistic}/same/{channel}/{mass}"
+            self.asimov_bkg_dataset = AsimovSpectralDataset.from_SpectralDataset(
+                self.d_bkg
             )
-        except OSError:
-            if channel is None:
-                channels = list(
-                    h5py.File(self.path)["validation"][statistic]["diff"].keys()
-                )
-                channels = [ch for ch in channels if "meta" not in ch]
-                raise ValueError(f"Channel must be one of {channels}")
-            if mass is None:
-                masses = list(
-                    h5py.File(self.path)["validation"][statistic]["diff"][
-                        channel
-                    ].keys()
-                )
-                masses = [Quantity(m) for m in masses if "meta" not in m]
-                raise ValueError(f"Mass must be one of {masses}")
+
+        table_diff = QTable.read(
+            self.path, path=f"validation/{statistic}/diff/{channel}/{mass}"
+        )
+        table_same = QTable.read(
+            self.path, path=f"validation/{statistic}/same/{channel}/{mass}"
+        )
 
         toys_ts_diff = table_diff["ts"]
         toys_ts_diff_valid = table_diff["valid"]
@@ -173,63 +185,98 @@ class ValidationPlotter:
         toys_ts_diff = toys_ts_diff[toys_ts_diff_valid]
         toys_ts_same = toys_ts_same[toys_ts_same_valid]
 
-        max_ts = max(toys_ts_diff.max(), toys_ts_same.max())
-        bins = np.linspace(0, max_ts, 31)
-        linspace = np.linspace(0, max_ts, 1000)
-        statistic = STATISTICS[statistic](asimov_dataset, poi_name)
+        bins_same = np.linspace(0, toys_ts_same.max(), 31)
+        bins_diff = np.linspace(0, toys_ts_diff.max(), 31)
+        linspace_same = np.linspace(1e-3, bins_same[-1], 1000)
+        linspace_diff = np.linspace(1e-3, bins_diff[-1], 1000)
+        statistic_sig = STATISTICS[statistic](self.asimov_sig_dataset, poi_name)
+        statistic_bkg = STATISTICS[statistic](self.asimov_bkg_dataset, poi_name)
         statistic_math_name = (
             r"q_\mu" if isinstance(statistic, QMuTestStatistic) else r"\tilde{q}_\mu"
         )
 
+        fig, axs = plt.subplot_mosaic([["same"], ["diff"]])
+
         self.plot(
-            linspace, bins, toys_ts_same, toys_ts_diff, statistic, statistic_math_name
+            linspace_same,
+            linspace_diff,
+            bins_same,
+            bins_diff,
+            toys_ts_same,
+            toys_ts_diff,
+            statistic_sig,
+            statistic_bkg,
+            axs,
         )
 
-        self.ax.set_yscale("log")
-        self.ax.set_xlim(0, max_ts)
+        for ax in axs:
+            axs[ax].set_yscale("log")
+            axs[ax].set_xlim(
+                0,
+            )
+            axs[ax].set_ylim(1e-4, 1e2)
 
-        self.ax.set_ylabel("pdf")
-        self.ax.set_xlabel(rf"${statistic_math_name}$")
-        self.ax.set_title(statistic.__class__.__name__)
-        self.ax.legend()
+            if ax == "same":
+                axs[ax].set_ylabel(
+                    r"$f(\tilde{q}_\mu\vert\mu^\prime,\theta_{\mu,\text{obs}})$ \\"
+                    r"$\mu=10^5$, $\mu^\prime=10^5$"
+                )
+            else:
+                axs[ax].set_ylabel(
+                    r"$f(\tilde{q}_\mu\vert\mu^\prime,\theta_{\mu,\text{obs}})$ \\"
+                    r"$\mu=10^5$, $\mu^\prime=0$"
+                )
+            axs[ax].set_xlabel(rf"${statistic_math_name}$")
+            axs[ax].set_title(statistic.__class__.__name__)
+            axs[ax].legend()
+        self.fig = fig
+        self.axs = axs
 
     def plot(
-        self, linspace, bins, toys_ts_same, toys_ts_diff, statistic, statistic_math_name
+        self,
+        linspace_same,
+        linspace_diff,
+        bins_same,
+        bins_diff,
+        toys_ts_same,
+        toys_ts_diff,
+        statistic_sig,
+        statistic_bkg,
+        axs,
     ):
-        plt.hist(
+        print(self.poi_val)
+        axs["diff"].hist(
             toys_ts_diff,
-            bins=bins,
+            bins=bins_diff,
             density=True,
             histtype="step",
-            color="tab:blue",
-            label=(
-                rf"$f({statistic_math_name}\vert\mu^\prime)$, "
-                r"$\mu=1$, $\mu^\prime=0$"
-            ),
+            color="C0",
+            label=(r"MC"),
         )
-        plt.hist(
+        axs["same"].hist(
             toys_ts_same,
-            bins=bins,
+            bins=bins_same,
             density=True,
             histtype="step",
-            color="tab:orange",
-            label=(
-                rf"$f({statistic_math_name}\vert\mu^\prime)$, "
-                r"$\mu=1$, $\mu^\prime=1$"
-            ),
+            color="C1",
+            label=(r"MC"),
         )
 
-        plt.plot(
-            linspace,
-            statistic.asympotic_approximation_pdf(
-                poi_val=1, same=False, poi_true_val=0, ts_val=linspace
+        axs["diff"].plot(
+            linspace_diff,
+            statistic_bkg.asympotic_approximation_pdf(
+                poi_val=self.poi_val, same=False, poi_true_val=0, ts_val=linspace_diff
             ),
-            color="tab:blue",
-            label=rf"$f({statistic_math_name}\vert\mu^\prime)$, asympotic",
+            color="C0",
+            ls="--",
+            label=r"Asymptotic",
         )
-        plt.plot(
-            linspace,
-            statistic.asympotic_approximation_pdf(poi_val=1, ts_val=linspace),
-            color="tab:orange",
-            label=rf"$f({statistic_math_name}\vert\mu^\prime)$, asympotic",
+        axs["same"].plot(
+            linspace_same,
+            statistic_sig.asympotic_approximation_pdf(
+                poi_val=self.poi_val, ts_val=linspace_same
+            ),
+            color="C1",
+            ls="--",
+            label=r"Asymptotic",
         )
