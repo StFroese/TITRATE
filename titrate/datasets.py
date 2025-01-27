@@ -1,6 +1,5 @@
 import numpy as np
 from gammapy.datasets import MapDataset, SpectrumDataset
-from gammapy.stats import cash_sum_cython
 
 from titrate.utils import copy_models_to_dataset
 
@@ -16,11 +15,6 @@ class AsimovMapDataset(MapDataset):
         This method generates Asimov like counts,
         i.e. the counts are not drawn from a poisson distribution.
         """
-        # # data = np.nan_to_num(
-        # #     npred_background.data, copy=True, nan=0.0, posinf=0.0, neginf=0.0
-        # # )
-        # # npred_background.data = data
-
         npred = self.npred()
         data = np.nan_to_num(npred.data, copy=True, nan=0.0, posinf=0.0, neginf=0.0)
         npred.data = data
@@ -62,7 +56,7 @@ class AsimovSpectralDataset(SpectrumDataset):
         npred = self.npred()
         data = np.nan_to_num(npred.data, copy=True, nan=0.0, posinf=0.0, neginf=0.0)
         npred.data = data
-        self.counts = npred
+        self.counts = npred.data.copy()
 
     @classmethod
     def from_SpectralDataset(self, dataset):
@@ -75,10 +69,6 @@ class AsimovSpectralDataset(SpectrumDataset):
             deleted_entries[key] = dataset_dict.pop(key)
 
         asimov_dataset = AsimovSpectralDataset(**dataset_dict)
-        # for key in deleted_entries.keys():
-        #     if key == "_name":
-        #         continue
-        #     setattr(asimov_dataset, key, deleted_entries[key])
 
         copy_models_to_dataset(dataset.models, asimov_dataset)
         asimov_dataset.fake()
