@@ -4,8 +4,7 @@ import astropy.units as u
 import numpy as np
 from astropy.table import QTable
 from gammapy.astro.darkmatter import DarkMatterAnnihilationSpectralModel
-from gammapy.modeling import Covariance, Fit
-from gammapy.modeling.fit import OptimizeResult
+from gammapy.modeling import Fit
 from gammapy.modeling.models import (
     FoVBackgroundModel,
     Models,
@@ -84,11 +83,9 @@ class ULCalculator:
                 poi_ul = 1e-2
         else:
             poi_ul = poi_best
-        prev_pval = 0
         while (
             (pval := self.pvalue(poi_ul, cl_type=self.cl_type)) > 1 - self.cl
         ) or np.isnan(pval):
-            prev_pval = pval
             poi_ul *= 2
 
         interp_ul_points = np.linspace(poi_ul / 2, poi_ul, 5)
@@ -105,7 +102,6 @@ class ULCalculator:
 
         poi_ul = brentq(interpolation, poi_ul / 2, poi_ul)
 
-        print("FOUND:", poi_ul)
         self.poi_ul = poi_ul
 
         return poi_ul
@@ -139,7 +135,7 @@ class ULCalculator:
             target_ts = norm.ppf(1 - 0.5 * (1 - self.cl)) ** 2
 
         poi_ul = 1e-2
-        while (ts := self.no_signal_statistic.evaluate(poi_ul)) < target_ts:
+        while self.no_signal_statistic.evaluate(poi_ul) < target_ts:
             poi_ul *= 2
 
         interp_ul_points = np.linspace(poi_ul / 2, poi_ul, 10)

@@ -244,7 +244,6 @@ class ValidationPlotter:
         statistic_bkg,
         axs,
     ):
-        print(self.poi_val)
         axs["diff"].hist(
             toys_ts_diff,
             bins=bins_diff,

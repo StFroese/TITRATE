@@ -10,7 +10,7 @@ from gammapy.modeling import Fit
 from gammapy.modeling.models import SkyModel
 
 from titrate.datasets import AsimovMapDataset, AsimovSpectralDataset
-from titrate.statistics import QMuTestStatistic, QTildeMuTestStatistic, kstest
+from titrate.statistics import QMuTestStatistic, QTildeMuTestStatistic
 from titrate.utils import calc_ts_toyMC, copy_dataset_with_models
 
 STATISTICS = {"qmu": QMuTestStatistic, "qtildemu": QTildeMuTestStatistic}
@@ -109,7 +109,6 @@ class AsymptoticValidator:
                 poi_val=self.poi_val, ts_val=x
             ),
         ).pvalue
-        print(ks_diff, ks_same)
 
         valid = ks_diff > 0.05 and ks_same > 0.05
 
