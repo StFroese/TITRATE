@@ -40,7 +40,7 @@ def validation_file(measurement_dataset, tmp_path_factory):
 
 
 @pytest.mark.parametrize("statistic", ["qmu", "qtildemu"])
-def test_AsmyptoticValidator(measurement_dataset, statistic, validation_file):
+def test_AsymptoticValidator(measurement_dataset, statistic, validation_file):
     from titrate.validation import AsymptoticValidator
 
     validator = AsymptoticValidator(

@@ -1,15 +1,17 @@
 from gammapy.datasets import Datasets
 
 
-def CopyModelError(AttributeError):
+class CopyModelError(AttributeError):
     """Something went wrong during copying a model."""
+    pass
 
 
 def calc_ts_toyMC(dataset, test_statistic, poi_val, poi_true_val, poi_name):
     """Evaluates given test statistic for toy MCs.
 
-    The given dataset will be copied and a new measurement will be simulated.
-    The test statistic is evaluated for this dataset.
+    The `poi_true_val` is used to set the parameter of interest in the model
+    before simulating the new measurement from which the test statistic is
+    evaluated.
     """
     toy_dataset = copy_dataset_with_models(dataset)
     toy_dataset.models.parameters[poi_name].value = poi_true_val
